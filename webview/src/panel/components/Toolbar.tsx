@@ -456,14 +456,14 @@ function FilterDropdown({
         left: 0,
         marginTop: 4,
         zIndex: 9999,
-        background: "var(--vscode-menu-background, #252526)",
-        border: "1px solid var(--vscode-menu-border, #454545)",
+        background: "var(--vscode-menu-background, #fff)",
+        border: "1px solid var(--vscode-menu-border, #e0e0e0)",
         borderRadius: 4,
         padding: "4px 0",
         minWidth: 140,
         maxHeight: 200,
         overflowY: "auto",
-        boxShadow: "0 2px 8px rgba(0,0,0,0.4)",
+        boxShadow: "0 3px 12px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.05)",
       }}
     >
       {children}
@@ -488,19 +488,19 @@ function DropdownItem({
         fontSize: "12px",
         cursor: "pointer",
         color: active
-          ? "var(--vscode-menu-selectionForeground, #fff)"
+          ? "var(--vscode-menu-selectionForeground, #333)"
           : "var(--vscode-menu-foreground, #ccc)",
         background: active
-          ? "var(--vscode-menu-selectionBackground, #094771)"
+          ? "var(--vscode-menu-selectionBackground, #e8f0fe)"
           : "transparent",
         whiteSpace: "nowrap",
       }}
       onMouseEnter={(e) => {
         if (!active) {
           (e.currentTarget as HTMLElement).style.background =
-            "var(--vscode-menu-selectionBackground, #094771)";
+            "var(--vscode-menu-selectionBackground, #e8f0fe)";
           (e.currentTarget as HTMLElement).style.color =
-            "var(--vscode-menu-selectionForeground, #fff)";
+            "var(--vscode-menu-selectionForeground, #333)";
         }
       }}
       onMouseLeave={(e) => {
