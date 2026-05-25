@@ -364,9 +364,7 @@ function FilterButton({
         fontSize: "12px",
         cursor: "pointer",
         borderRadius: 3,
-        border: active
-          ? "1px solid var(--vscode-focusBorder, #007fd4)"
-          : "1px solid transparent",
+        border: "1px solid transparent",
         color: active
           ? "var(--vscode-textLink-foreground, #3794ff)"
           : "var(--description-fg)",
