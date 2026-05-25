@@ -137,23 +137,15 @@ export function Toolbar() {
           onClear={handleClearAuthor}
         />
         {showUserDropdown && (
-          <FilterDropdown onClose={() => setShowUserDropdown(false)}>
-            {filter.author && (
-              <DropdownItem
-                label="All users"
-                active={false}
-                onClick={handleClearAuthor}
-              />
-            )}
-            {authors.map((author) => (
-              <DropdownItem
-                key={author}
-                label={author}
-                active={author === filter.author}
-                onClick={() => handleSelectAuthor(author)}
-              />
-            ))}
-          </FilterDropdown>
+          <SearchableDropdown
+            items={authors}
+            activeItem={filter.author}
+            placeholder="Select user..."
+            onSelect={handleSelectAuthor}
+            onClear={filter.author ? handleClearAuthor : undefined}
+            clearLabel="All users"
+            onClose={() => setShowUserDropdown(false)}
+          />
         )}
       </div>
 
@@ -173,35 +165,16 @@ export function Toolbar() {
           onClear={handleClearDate}
         />
         {showDateDropdown && (
-          <FilterDropdown onClose={() => setShowDateDropdown(false)}>
-            {filter.dateRange && (
-              <DropdownItem
-                label="All time"
-                active={false}
-                onClick={handleClearDate}
-              />
-            )}
-            <DropdownItem
-              label="Today"
-              active={filter.dateRange === "today"}
-              onClick={() => handleSelectDate("today")}
-            />
-            <DropdownItem
-              label="Last 7 days"
-              active={filter.dateRange === "7days"}
-              onClick={() => handleSelectDate("7days")}
-            />
-            <DropdownItem
-              label="Last 30 days"
-              active={filter.dateRange === "30days"}
-              onClick={() => handleSelectDate("30days")}
-            />
-            <DropdownItem
-              label="Last 90 days"
-              active={filter.dateRange === "90days"}
-              onClick={() => handleSelectDate("90days")}
-            />
-          </FilterDropdown>
+          <SearchableDropdown
+            items={["today", "7days", "30days", "90days"]}
+            activeItem={filter.dateRange}
+            placeholder="Select date range..."
+            onSelect={handleSelectDate}
+            onClear={filter.dateRange ? handleClearDate : undefined}
+            clearLabel="All time"
+            onClose={() => setShowDateDropdown(false)}
+            labelMap={dateLabels}
+          />
         )}
       </div>
 
@@ -465,65 +438,6 @@ function FilterButton({
   );
 }
 
-function FilterDropdown({
-  children,
-  onClose,
-}: {
-  children: React.ReactNode;
-  onClose: () => void;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleMouseDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        onClose();
-      }
-    };
-    const handleScroll = (e: Event) => {
-      if (
-        ref.current &&
-        e.target instanceof Node &&
-        !ref.current.contains(e.target)
-      ) {
-        onClose();
-      }
-    };
-    const handleBlur = () => onClose();
-    document.addEventListener("mousedown", handleMouseDown, true);
-    document.addEventListener("scroll", handleScroll, true);
-    window.addEventListener("blur", handleBlur);
-    return () => {
-      document.removeEventListener("mousedown", handleMouseDown, true);
-      document.removeEventListener("scroll", handleScroll, true);
-      window.removeEventListener("blur", handleBlur);
-    };
-  }, [onClose]);
-
-  return (
-    <div
-      ref={ref}
-      style={{
-        position: "absolute",
-        top: "100%",
-        left: 0,
-        marginTop: 4,
-        zIndex: 9999,
-        background: "var(--vscode-menu-background, #fff)",
-        border: "1px solid var(--vscode-menu-border, #e0e0e0)",
-        borderRadius: 4,
-        padding: "4px 0",
-        minWidth: 140,
-        maxHeight: 200,
-        overflowY: "auto",
-        boxShadow: "0 3px 12px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.05)",
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
 function DropdownItem({
   label,
   active,
@@ -581,6 +495,7 @@ function SearchableDropdown({
   onClear,
   clearLabel,
   onClose,
+  labelMap,
 }: {
   items: string[];
   activeItem: string;
@@ -589,6 +504,7 @@ function SearchableDropdown({
   onClear?: () => void;
   clearLabel?: string;
   onClose: () => void;
+  labelMap?: Record<string, string>;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -625,7 +541,10 @@ function SearchableDropdown({
   }, [onClose]);
 
   const filtered = query
-    ? items.filter((item) => item.toLowerCase().includes(query.toLowerCase()))
+    ? items.filter((item) => {
+        const display = labelMap?.[item] ?? item;
+        return display.toLowerCase().includes(query.toLowerCase());
+      })
     : items;
 
   return (
@@ -686,7 +605,7 @@ function SearchableDropdown({
         {filtered.map((item) => (
           <DropdownItem
             key={item}
-            label={item}
+            label={labelMap?.[item] ?? item}
             active={item === activeItem}
             onClick={() => onSelect(item)}
           />

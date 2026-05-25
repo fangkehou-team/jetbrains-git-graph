@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.3] - 2025-05-25
+
+### Changed
+- User and Date filter dropdowns now also have search input (same as Branch)
+- Removed unused FilterDropdown component
+
 ## [0.3.2] - 2025-05-25
 
 ### Added
