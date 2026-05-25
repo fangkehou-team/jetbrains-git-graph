@@ -108,6 +108,7 @@ export function Toolbar() {
             setShowUserDropdown(false);
             setShowDateDropdown(false);
           }}
+          onClear={handleClearBranch}
         />
         {showBranchDropdown && (
           <FilterDropdown onClose={() => setShowBranchDropdown(false)}>
@@ -141,6 +142,7 @@ export function Toolbar() {
             setShowDateDropdown(false);
             setShowBranchDropdown(false);
           }}
+          onClear={handleClearAuthor}
         />
         {showUserDropdown && (
           <FilterDropdown onClose={() => setShowUserDropdown(false)}>
@@ -176,6 +178,7 @@ export function Toolbar() {
             setShowUserDropdown(false);
             setShowBranchDropdown(false);
           }}
+          onClear={handleClearDate}
         />
         {showDateDropdown && (
           <FilterDropdown onClose={() => setShowDateDropdown(false)}>
@@ -226,42 +229,112 @@ function SearchInput({
   defaultValue: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [value, setValue] = useState(defaultValue);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setValue(e.target.value);
+    onChange(e);
+  };
+
+  const handleClear = () => {
+    setValue("");
+    if (inputRef.current) {
+      // Trigger onChange with empty value
+      const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        "value",
+      )?.set;
+      nativeInputValueSetter?.call(inputRef.current, "");
+      inputRef.current.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  };
+
   return (
-    <input
-      type="text"
-      placeholder={placeholder}
-      defaultValue={defaultValue}
-      onChange={onChange}
+    <div
       style={{
+        position: "relative",
+        display: "flex",
+        alignItems: "center",
         width: 180,
-        padding: "4px 8px",
-        fontSize: "12px",
-        border: "1px solid var(--vscode-input-border, #3c3c3c)",
-        background: "var(--vscode-input-background, #1e1e1e)",
-        color: "var(--vscode-input-foreground, #ccc)",
-        borderRadius: 3,
-        outline: "none",
-        boxSizing: "border-box",
       }}
-      onFocus={(e) => {
-        (e.target as HTMLElement).style.borderColor =
-          "var(--vscode-focusBorder, #007fd4)";
-      }}
-      onBlur={(e) => {
-        (e.target as HTMLElement).style.borderColor =
-          "var(--vscode-input-border, #3c3c3c)";
-      }}
-      onMouseEnter={(e) => {
-        (e.target as HTMLElement).style.borderColor =
-          "var(--vscode-focusBorder, #007fd4)";
-      }}
-      onMouseLeave={(e) => {
-        if (document.activeElement !== e.target) {
+    >
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 16 16"
+        fill="currentColor"
+        style={{
+          position: "absolute",
+          left: 6,
+          opacity: 0.5,
+          pointerEvents: "none",
+        }}
+      >
+        <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85zm-5.242.156a5 5 0 1 1 0-10 5 5 0 0 1 0 10z" />
+      </svg>
+      <input
+        ref={inputRef}
+        type="text"
+        placeholder={placeholder}
+        defaultValue={defaultValue}
+        onChange={handleChange}
+        style={{
+          width: "100%",
+          padding: "4px 24px",
+          fontSize: "12px",
+          border: "1px solid var(--vscode-input-border, #3c3c3c)",
+          background: "var(--vscode-input-background, #1e1e1e)",
+          color: "var(--vscode-input-foreground, #ccc)",
+          borderRadius: 3,
+          outline: "none",
+          boxSizing: "border-box",
+        }}
+        onFocus={(e) => {
+          (e.target as HTMLElement).style.borderColor =
+            "var(--vscode-focusBorder, #007fd4)";
+        }}
+        onBlur={(e) => {
           (e.target as HTMLElement).style.borderColor =
             "var(--vscode-input-border, #3c3c3c)";
-        }
-      }}
-    />
+        }}
+        onMouseEnter={(e) => {
+          (e.target as HTMLElement).style.borderColor =
+            "var(--vscode-focusBorder, #007fd4)";
+        }}
+        onMouseLeave={(e) => {
+          if (document.activeElement !== e.target) {
+            (e.target as HTMLElement).style.borderColor =
+              "var(--vscode-input-border, #3c3c3c)";
+          }
+        }}
+      />
+      {value && (
+        <div
+          onClick={handleClear}
+          style={{
+            position: "absolute",
+            right: 4,
+            cursor: "pointer",
+            opacity: 0.6,
+            display: "flex",
+            alignItems: "center",
+            padding: 2,
+            borderRadius: 3,
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLElement).style.opacity = "1";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLElement).style.opacity = "0.6";
+          }}
+        >
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M8 8.707l3.646 3.647.708-.707L8.707 8l3.647-3.646-.707-.708L8 7.293 4.354 3.646l-.707.708L7.293 8l-3.646 3.646.707.708L8 8.707z" />
+          </svg>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -270,16 +343,20 @@ function FilterButton({
   active,
   activeValue,
   onClick,
+  onClear,
 }: {
   label: string;
   active: boolean;
   activeValue?: string;
   onClick: () => void;
+  onClear?: () => void;
 }) {
   return (
     <div
-      onClick={onClick}
       style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 2,
         padding: "2px 8px",
         fontSize: "12px",
         cursor: "pointer",
@@ -294,21 +371,54 @@ function FilterButton({
         userSelect: "none",
       }}
     >
-      {active && activeValue ? (
-        `${label}: ${activeValue}`
-      ) : (
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
-          {label}
-          <svg
-            width="10"
-            height="10"
-            viewBox="0 0 16 16"
-            fill="currentColor"
-            style={{ opacity: 0.7 }}
+      <span onClick={onClick}>
+        {active && activeValue ? (
+          `${label}: ${activeValue}`
+        ) : (
+          <span
+            style={{ display: "inline-flex", alignItems: "center", gap: 2 }}
           >
-            <path d="M8 11L3 6h10l-5 5z" />
+            {label}
+            <svg
+              width="10"
+              height="10"
+              viewBox="0 0 16 16"
+              fill="currentColor"
+              style={{ opacity: 0.7 }}
+            >
+              <path d="M8 11L3 6h10l-5 5z" />
+            </svg>
+          </span>
+        )}
+      </span>
+      {active && onClear && (
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+            onClear();
+          }}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            marginLeft: 2,
+            opacity: 0.6,
+            borderRadius: 3,
+            padding: 1,
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLElement).style.opacity = "1";
+            (e.currentTarget as HTMLElement).style.background =
+              "var(--vscode-toolbar-hoverBackground, rgba(90,93,94,0.31))";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLElement).style.opacity = "0.6";
+            (e.currentTarget as HTMLElement).style.background = "transparent";
+          }}
+        >
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M8 8.707l3.646 3.647.708-.707L8.707 8l3.647-3.646-.707-.708L8 7.293 4.354 3.646l-.707.708L7.293 8l-3.646 3.646.707.708L8 8.707z" />
           </svg>
-        </span>
+        </div>
       )}
     </div>
   );

@@ -233,41 +233,93 @@ export function BranchTree() {
       }}
     >
       <div style={{ padding: "4px 8px" }}>
-        <input
-          type="text"
-          placeholder="Branch or tag"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+        <div
           style={{
-            width: "100%",
-            padding: "4px 8px",
-            fontSize: "12px",
-            border: "1px solid var(--vscode-input-border, #3c3c3c)",
-            background: "var(--vscode-input-background, #1e1e1e)",
-            color: "var(--vscode-input-foreground, #ccc)",
-            borderRadius: 3,
-            outline: "none",
-            boxSizing: "border-box",
+            position: "relative",
+            display: "flex",
+            alignItems: "center",
           }}
-          onFocus={(e) => {
-            (e.target as HTMLElement).style.borderColor =
-              "var(--vscode-focusBorder, #007fd4)";
-          }}
-          onBlur={(e) => {
-            (e.target as HTMLElement).style.borderColor =
-              "var(--vscode-input-border, #3c3c3c)";
-          }}
-          onMouseEnter={(e) => {
-            (e.target as HTMLElement).style.borderColor =
-              "var(--vscode-focusBorder, #007fd4)";
-          }}
-          onMouseLeave={(e) => {
-            if (document.activeElement !== e.target) {
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 16 16"
+            fill="currentColor"
+            style={{
+              position: "absolute",
+              left: 6,
+              opacity: 0.5,
+              pointerEvents: "none",
+            }}
+          >
+            <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85zm-5.242.156a5 5 0 1 1 0-10 5 5 0 0 1 0 10z" />
+          </svg>
+          <input
+            type="text"
+            placeholder="Branch or tag"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{
+              width: "100%",
+              padding: "4px 24px",
+              fontSize: "12px",
+              border: "1px solid var(--vscode-input-border, #3c3c3c)",
+              background: "var(--vscode-input-background, #1e1e1e)",
+              color: "var(--vscode-input-foreground, #ccc)",
+              borderRadius: 3,
+              outline: "none",
+              boxSizing: "border-box",
+            }}
+            onFocus={(e) => {
+              (e.target as HTMLElement).style.borderColor =
+                "var(--vscode-focusBorder, #007fd4)";
+            }}
+            onBlur={(e) => {
               (e.target as HTMLElement).style.borderColor =
                 "var(--vscode-input-border, #3c3c3c)";
-            }
-          }}
-        />
+            }}
+            onMouseEnter={(e) => {
+              (e.target as HTMLElement).style.borderColor =
+                "var(--vscode-focusBorder, #007fd4)";
+            }}
+            onMouseLeave={(e) => {
+              if (document.activeElement !== e.target) {
+                (e.target as HTMLElement).style.borderColor =
+                  "var(--vscode-input-border, #3c3c3c)";
+              }
+            }}
+          />
+          {searchQuery && (
+            <div
+              onClick={() => setSearchQuery("")}
+              style={{
+                position: "absolute",
+                right: 4,
+                cursor: "pointer",
+                opacity: 0.6,
+                display: "flex",
+                alignItems: "center",
+                padding: 2,
+                borderRadius: 3,
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLElement).style.opacity = "1";
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLElement).style.opacity = "0.6";
+              }}
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 16 16"
+                fill="currentColor"
+              >
+                <path d="M8 8.707l3.646 3.647.708-.707L8.707 8l3.647-3.646-.707-.708L8 7.293 4.354 3.646l-.707.708L7.293 8l-3.646 3.646.707.708L8 8.707z" />
+              </svg>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* HEAD – unified "Current Branch" entry */}
