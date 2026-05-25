@@ -30,6 +30,8 @@ export function CommitList({
   const [columnWidths, setColumnWidths] = useState<ColumnWidths>(
     DEFAULT_COLUMN_WIDTHS,
   );
+  const columnWidthsRef = useRef(columnWidths);
+  columnWidthsRef.current = columnWidths;
 
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -86,19 +88,43 @@ export function CommitList({
     return () => el.removeEventListener("scroll", handleScroll);
   }, [handleScroll]);
 
-  const handleResizeAuthor = useCallback((delta: number) => {
-    setColumnWidths((prev) => ({
-      ...prev,
-      author: Math.max(40, prev.author + delta),
-    }));
-  }, []);
+  // Resize handlers using startX approach for stable dragging
+  const [resizing, setResizing] = useState<string | null>(null);
 
-  const handleResizeDate = useCallback((delta: number) => {
-    setColumnWidths((prev) => ({
-      ...prev,
-      date: Math.max(60, prev.date + delta),
-    }));
-  }, []);
+  const startResize = useCallback(
+    (column: "author" | "date", e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const startX = e.clientX;
+      const startWidth = columnWidthsRef.current[column];
+      setResizing(column);
+
+      // Prevent text selection during drag
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+
+      const onMouseMove = (ev: MouseEvent) => {
+        const diff = ev.clientX - startX;
+        const newWidth = Math.max(
+          column === "author" ? 40 : 60,
+          startWidth + diff,
+        );
+        setColumnWidths((prev) => ({ ...prev, [column]: newWidth }));
+      };
+
+      const onMouseUp = () => {
+        setResizing(null);
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+        document.removeEventListener("mousemove", onMouseMove);
+        document.removeEventListener("mouseup", onMouseUp);
+      };
+
+      document.addEventListener("mousemove", onMouseMove);
+      document.addEventListener("mouseup", onMouseUp);
+    },
+    [],
+  );
 
   return (
     <div
@@ -124,8 +150,11 @@ export function CommitList({
           userSelect: "none",
         }}
       >
-        <span style={{ flex: 1, paddingRight: 8 }}>Message</span>
-        <ResizeHandle onResize={handleResizeAuthor} />
+        <span style={{ flex: 1, paddingRight: 4 }}>Message</span>
+        <ColumnResizeHandle
+          active={resizing === "author"}
+          onMouseDown={(e) => startResize("author", e)}
+        />
         <span
           style={{
             flexShrink: 0,
@@ -135,7 +164,10 @@ export function CommitList({
         >
           Author
         </span>
-        <ResizeHandle onResize={handleResizeDate} />
+        <ColumnResizeHandle
+          active={resizing === "date"}
+          onMouseDown={(e) => startResize("date", e)}
+        />
         <span
           style={{
             flexShrink: 0,
@@ -206,61 +238,44 @@ export function CommitList({
 }
 
 // ---------------------------------------------------------------------------
-// ResizeHandle – draggable column separator
+// ColumnResizeHandle
 // ---------------------------------------------------------------------------
 
-function ResizeHandle({ onResize }: { onResize: (delta: number) => void }) {
-  const handleRef = useRef<HTMLDivElement>(null);
-  const [dragging, setDragging] = useState(false);
-
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      let lastX = e.clientX;
-      setDragging(true);
-
-      const handleMouseMove = (ev: MouseEvent) => {
-        const delta = ev.clientX - lastX;
-        lastX = ev.clientX;
-        if (delta !== 0) {
-          onResize(delta);
-        }
-      };
-
-      const handleMouseUp = () => {
-        setDragging(false);
-        document.removeEventListener("mousemove", handleMouseMove);
-        document.removeEventListener("mouseup", handleMouseUp);
-      };
-
-      document.addEventListener("mousemove", handleMouseMove);
-      document.addEventListener("mouseup", handleMouseUp);
-    },
-    [onResize],
-  );
+function ColumnResizeHandle({
+  active,
+  onMouseDown,
+}: {
+  active: boolean;
+  onMouseDown: (e: React.MouseEvent) => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+  const highlight = active || hovered;
 
   return (
     <div
-      ref={handleRef}
-      onMouseDown={handleMouseDown}
+      onMouseDown={onMouseDown}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       style={{
-        width: 5,
+        width: 9,
         cursor: "col-resize",
         height: "100%",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         flexShrink: 0,
+        padding: "0 3px",
       }}
     >
       <div
         style={{
-          width: 1,
-          height: "60%",
-          background: dragging
+          width: highlight ? 2 : 1,
+          height: "70%",
+          background: highlight
             ? "var(--vscode-focusBorder, #007fd4)"
-            : "var(--border, #333)",
+            : "var(--border, #444)",
+          borderRadius: 1,
+          transition: "width 0.1s, background 0.1s",
         }}
       />
     </div>
