@@ -768,6 +768,18 @@ function BranchContextMenu({
     }
   };
 
+  const handleCheckoutAndRebase = async () => {
+    onClose();
+    try {
+      await bridge.request("checkoutAndRebase", {
+        branchToCheckout: branch.name,
+        rebaseOnto: currentBranch,
+      });
+    } catch (err) {
+      console.error("Checkout and rebase failed:", err);
+    }
+  };
+
   const items: { label: string; action: () => void; disabled?: boolean; separator?: boolean }[] = [];
 
   if (!isCurrent) {
@@ -777,6 +789,12 @@ function BranchContextMenu({
     label: `New Branch from '${branch.name}'...`,
     action: handleNewBranch,
   });
+  if (!isCurrent) {
+    items.push({
+      label: `Checkout and Rebase onto '${currentBranch}'`,
+      action: handleCheckoutAndRebase,
+    });
+  }
 
   if (!isCurrent) {
     items.push({ label: "", action: () => {}, separator: true });

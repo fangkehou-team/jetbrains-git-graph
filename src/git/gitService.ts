@@ -453,6 +453,15 @@ export class GitService {
     this.invalidateCache();
   }
 
+  async checkoutAndRebase(
+    branchToCheckout: string,
+    rebaseOnto: string,
+  ): Promise<void> {
+    await this.execGit(["checkout", branchToCheckout]);
+    await this.execGit(["rebase", rebaseOnto]);
+    this.invalidateCache();
+  }
+
   invalidateCache(pattern?: string): void {
     this.cache.invalidate(pattern);
   }

@@ -48,7 +48,8 @@ export type CommandType =
   | "deleteBranch"
   | "renameBranch"
   | "mergeBranch"
-  | "rebaseBranch";
+  | "rebaseBranch"
+  | "checkoutAndRebase";
 
 export interface Bridge {
   request(
