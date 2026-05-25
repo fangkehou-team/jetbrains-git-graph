@@ -4,6 +4,7 @@ import CodiconListTree from "~icons/codicon/list-tree";
 import { FileTree } from "../../shared/components/FileTree";
 import { usePanelStore } from "../../shared/store/panel-store";
 import type { DiffFile } from "../../shared/types/git";
+import { FileContextMenu } from "./FileContextMenu";
 
 export function FileChangeTree() {
   const commitFiles = usePanelStore((s) => s.commitFiles);
@@ -18,6 +19,11 @@ export function FileChangeTree() {
 
   const [viewMode, setViewMode] = useState<"tree" | "flat">("tree");
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    file: DiffFile;
+  } | null>(null);
 
   const handleFileClick = useCallback(
     (_e: React.MouseEvent, file: DiffFile) => {
@@ -37,6 +43,17 @@ export function FileChangeTree() {
     },
     [selectedCommitHash, selectFile, openDiffEditor],
   );
+
+  const handleFileContextMenu = useCallback(
+    (e: React.MouseEvent, file: DiffFile) => {
+      setContextMenu({ x: e.clientX, y: e.clientY, file });
+    },
+    [],
+  );
+
+  const closeContextMenu = useCallback(() => {
+    setContextMenu(null);
+  }, []);
 
   const toggleCollapse = (key: string) => {
     setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -121,10 +138,19 @@ export function FileChangeTree() {
           viewMode={viewMode}
           selectedFiles={selectedFiles}
           onFileClick={handleFileClick}
+          onFileContextMenu={handleFileContextMenu}
           collapsed={collapsed}
           onToggle={toggleCollapse}
         />
       </div>
+      {contextMenu && (
+        <FileContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          file={contextMenu.file}
+          onClose={closeContextMenu}
+        />
+      )}
     </div>
   );
 }

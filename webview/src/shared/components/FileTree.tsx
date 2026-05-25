@@ -154,6 +154,7 @@ export interface FileTreeProps {
   selectedFiles: string[];
   onFileClick: (e: React.MouseEvent, file: DiffFile) => void;
   onFileDoubleClick?: (file: DiffFile) => void;
+  onFileContextMenu?: (e: React.MouseEvent, file: DiffFile) => void;
   collapsed?: Record<string, boolean>;
   onToggle?: (key: string) => void;
   renderExtraColumns?: (file: DiffFile) => React.ReactNode;
@@ -171,6 +172,7 @@ export function FileTree({
   selectedFiles,
   onFileClick,
   onFileDoubleClick,
+  onFileContextMenu,
   collapsed = {},
   onToggle,
   renderExtraColumns,
@@ -189,6 +191,7 @@ export function FileTree({
         selectedFiles={selectedFiles}
         onFileClick={onFileClick}
         onFileDoubleClick={onFileDoubleClick}
+        onFileContextMenu={onFileContextMenu}
         renderExtraColumns={renderExtraColumns}
         renderDirExtra={renderDirExtra}
         statusColorOverride={statusColorOverride}
@@ -202,6 +205,7 @@ export function FileTree({
       selectedFiles={selectedFiles}
       onFileClick={onFileClick}
       onFileDoubleClick={onFileDoubleClick}
+      onFileContextMenu={onFileContextMenu}
       renderExtraColumns={renderExtraColumns}
       statusColorOverride={statusColorOverride}
     />
@@ -220,6 +224,7 @@ function TreeView({
   selectedFiles,
   onFileClick,
   onFileDoubleClick,
+  onFileContextMenu,
   renderExtraColumns,
   renderDirExtra,
   statusColorOverride,
@@ -231,6 +236,7 @@ function TreeView({
   selectedFiles: string[];
   onFileClick: (e: React.MouseEvent, file: DiffFile) => void;
   onFileDoubleClick?: (file: DiffFile) => void;
+  onFileContextMenu?: (e: React.MouseEvent, file: DiffFile) => void;
   renderExtraColumns?: (file: DiffFile) => React.ReactNode;
   renderDirExtra?: (dir: FileTreeNode) => React.ReactNode;
   statusColorOverride?: (file: DiffFile) => string | undefined;
@@ -247,6 +253,7 @@ function TreeView({
           selectedFiles={selectedFiles}
           onFileClick={onFileClick}
           onFileDoubleClick={onFileDoubleClick}
+          onFileContextMenu={onFileContextMenu}
           renderExtraColumns={renderExtraColumns}
           renderDirExtra={renderDirExtra}
           statusColorOverride={statusColorOverride}
@@ -264,6 +271,7 @@ function FileTreeNodeView({
   selectedFiles,
   onFileClick,
   onFileDoubleClick,
+  onFileContextMenu,
   renderExtraColumns,
   renderDirExtra,
   statusColorOverride,
@@ -275,6 +283,7 @@ function FileTreeNodeView({
   selectedFiles: string[];
   onFileClick: (e: React.MouseEvent, file: DiffFile) => void;
   onFileDoubleClick?: (file: DiffFile) => void;
+  onFileContextMenu?: (e: React.MouseEvent, file: DiffFile) => void;
   renderExtraColumns?: (file: DiffFile) => React.ReactNode;
   renderDirExtra?: (dir: FileTreeNode) => React.ReactNode;
   statusColorOverride?: (file: DiffFile) => string | undefined;
@@ -291,6 +300,11 @@ function FileTreeNodeView({
         onDoubleClick={
           onFileDoubleClick
             ? () => node.file && onFileDoubleClick(node.file)
+            : undefined
+        }
+        onContextMenu={
+          onFileContextMenu
+            ? (e) => node.file && onFileContextMenu(e, node.file)
             : undefined
         }
         renderExtraColumns={renderExtraColumns}
@@ -364,6 +378,7 @@ function FileTreeNodeView({
           selectedFiles={selectedFiles}
           onFileClick={onFileClick}
           onFileDoubleClick={onFileDoubleClick}
+          onFileContextMenu={onFileContextMenu}
           renderExtraColumns={renderExtraColumns}
           renderDirExtra={renderDirExtra}
           statusColorOverride={statusColorOverride}
@@ -384,6 +399,7 @@ function FileRow({
   isSelected,
   onClick,
   onDoubleClick,
+  onContextMenu,
   directoryHint,
   renderExtraColumns,
   statusColorOverride,
@@ -394,6 +410,7 @@ function FileRow({
   isSelected: boolean;
   onClick: (e: React.MouseEvent) => void;
   onDoubleClick?: () => void;
+  onContextMenu?: (e: React.MouseEvent) => void;
   directoryHint?: string;
   renderExtraColumns?: (file: DiffFile) => React.ReactNode;
   statusColorOverride?: (file: DiffFile) => string | undefined;
@@ -409,6 +426,13 @@ function FileRow({
       className={`selectable-row${isSelected ? " selected" : ""}`}
       onClick={onClick}
       onDoubleClick={onDoubleClick}
+      onContextMenu={(e) => {
+        if (onContextMenu) {
+          e.preventDefault();
+          e.stopPropagation();
+          onContextMenu(e);
+        }
+      }}
       style={{
         display: "flex",
         alignItems: "center",
@@ -455,6 +479,7 @@ function FlatView({
   selectedFiles,
   onFileClick,
   onFileDoubleClick,
+  onFileContextMenu,
   renderExtraColumns,
   statusColorOverride,
 }: {
@@ -462,6 +487,7 @@ function FlatView({
   selectedFiles: string[];
   onFileClick: (e: React.MouseEvent, file: DiffFile) => void;
   onFileDoubleClick?: (file: DiffFile) => void;
+  onFileContextMenu?: (e: React.MouseEvent, file: DiffFile) => void;
   renderExtraColumns?: (file: DiffFile) => React.ReactNode;
   statusColorOverride?: (file: DiffFile) => string | undefined;
 }) {
@@ -492,6 +518,9 @@ function FlatView({
             onClick={(e) => onFileClick(e, file)}
             onDoubleClick={
               onFileDoubleClick ? () => onFileDoubleClick(file) : undefined
+            }
+            onContextMenu={
+              onFileContextMenu ? (e) => onFileContextMenu(e, file) : undefined
             }
             directoryHint={dirPath || undefined}
             renderExtraColumns={renderExtraColumns}

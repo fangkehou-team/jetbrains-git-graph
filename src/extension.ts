@@ -479,6 +479,15 @@ export function activate(context: vscode.ExtensionContext) {
     return { success: true };
   });
 
+  messageRouter.handle("openFileAtRevision", async (params) => {
+    if (!gitService) return NOT_GIT_REPO;
+    const filePath = params.filePath as string;
+    const ref = params.ref as string;
+    const uri = vscode.Uri.parse(`${GIT_BRAINS_SCHEME}:${filePath}?ref=${ref}`);
+    await vscode.window.showTextDocument(uri, { preview: true });
+    return { success: true };
+  });
+
   // 7. GitWatcher (only if GitService is available)
   if (gitService && workspaceRoot) {
     const watcher = new GitWatcher(
