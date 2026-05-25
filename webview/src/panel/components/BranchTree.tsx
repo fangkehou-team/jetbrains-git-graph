@@ -50,11 +50,11 @@ function IconFolder({ style }: { style?: React.CSSProperties }) {
       viewBox="0 0 16 16"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.1"
+      strokeWidth="1"
       strokeLinejoin="round"
       style={{ verticalAlign: "middle", ...style }}
     >
-      <path d="M1.5 4v8.5h13V5.5h-7l-1.5-1.5z" />
+      <path d="M2 4v8h12V5.5H8L6.5 4z" />
     </svg>
   );
 }

@@ -1,3 +1,4 @@
+import type React from "react";
 import type { ComponentType, SVGProps } from "react";
 import IconDefault from "~icons/vscode-icons/default-file";
 import IconCss from "~icons/vscode-icons/file-type-css";
@@ -27,9 +28,41 @@ import IconVue from "~icons/vscode-icons/file-type-vue";
 import IconXml from "~icons/vscode-icons/file-type-xml";
 import IconYaml from "~icons/vscode-icons/file-type-yaml";
 
-// --- Folder icons ---
-export { default as IconFolder } from "~icons/vscode-icons/default-folder";
-export { default as IconFolderOpen } from "~icons/vscode-icons/default-folder-opened";
+// --- Folder icons (stroke-based, IDEA style) ---
+export function IconFolder({ style }: { style?: React.CSSProperties }) {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1"
+      strokeLinejoin="round"
+      style={{ verticalAlign: "middle", color: "#8c8c8c", ...style }}
+    >
+      <path d="M2 4v8h12V5.5H8L6.5 4z" />
+    </svg>
+  );
+}
+
+export function IconFolderOpen({ style }: { style?: React.CSSProperties }) {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1"
+      strokeLinejoin="round"
+      style={{ verticalAlign: "middle", color: "#8c8c8c", ...style }}
+    >
+      <path d="M2 4v8h12V5.5H8L6.5 4z" />
+      <path d="M2 7l1.5-1h11L13 12H3z" />
+    </svg>
+  );
+}
 
 type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
 
