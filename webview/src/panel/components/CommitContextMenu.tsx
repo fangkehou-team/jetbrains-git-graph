@@ -284,6 +284,19 @@ export function CommitContextMenu({
     }
   };
 
+  const filter = usePanelStore((s) => s.filter);
+  const selectCommit = usePanelStore((s) => s.selectCommit);
+
+  const handleShowInGitLog = () => {
+    onClose();
+    // Clear file filter and select this commit in the full log
+    usePanelStore.getState().setFilter({ file: "" });
+    // After refresh, select this commit
+    setTimeout(() => {
+      selectCommit(commit.hash);
+    }, 500);
+  };
+
   const items: {
     label: string;
     action: () => void;
@@ -323,6 +336,16 @@ export function CommitContextMenu({
     { label: "New Branch...", action: handleNewBranch, icon: <IconBranch /> },
     { label: "New Tag...", action: handleNewTag, icon: <IconTag /> },
   ];
+
+  // Add "Show in Git Log" when file filter is active
+  if (filter.file) {
+    items.push({ label: "", action: () => {}, separator: true });
+    items.push({
+      label: "Show in Git Log",
+      action: handleShowInGitLog,
+      icon: <IconBranch />,
+    });
+  }
 
   const menu = (
     <div

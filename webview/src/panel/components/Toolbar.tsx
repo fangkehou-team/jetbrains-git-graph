@@ -213,15 +213,50 @@ export function Toolbar() {
         )}
       </div>
 
-      {/* File filter indicator */}
+      {/* File history tab */}
       {filter.file && (
-        <FilterButton
-          label="File"
-          active={true}
-          activeValue={filter.file.split("/").pop()}
-          onClick={() => setFilter({ file: "" })}
-          onClear={() => setFilter({ file: "" })}
-        />
+        <div
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4,
+            padding: "2px 8px 2px 10px",
+            fontSize: "12px",
+            borderRadius: 3,
+            background: "var(--vscode-tab-activeBackground, #1e1e1e)",
+            border: "1px solid var(--vscode-tab-border, #444)",
+            color: "var(--vscode-tab-activeForeground, inherit)",
+            whiteSpace: "nowrap",
+            userSelect: "none",
+          }}
+        >
+          <span style={{ opacity: 0.6 }}>History:</span>
+          <span style={{ fontWeight: 500 }}>
+            {filter.file.split("/").pop()}
+          </span>
+          <div
+            onClick={() => setFilter({ file: "" })}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              cursor: "pointer",
+              opacity: 0.5,
+              marginLeft: 2,
+              padding: 1,
+              borderRadius: 3,
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLElement).style.opacity = "1";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLElement).style.opacity = "0.5";
+            }}
+          >
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M8 8.707l3.646 3.647.708-.707L8.707 8l3.647-3.646-.707-.708L8 7.293 4.354 3.646l-.707.708L7.293 8l-3.646 3.646.707.708L8 8.707z" />
+            </svg>
+          </div>
+        </div>
       )}
     </div>
   );
