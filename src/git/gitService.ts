@@ -410,6 +410,11 @@ export class GitService {
     await this.execGit(["add", filePath]);
   }
 
+  async checkout(branchName: string): Promise<void> {
+    await this.execGit(["checkout", branchName]);
+    this.invalidateCache();
+  }
+
   invalidateCache(pattern?: string): void {
     this.cache.invalidate(pattern);
   }

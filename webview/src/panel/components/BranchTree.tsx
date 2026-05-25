@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import MdiChevronDown from "~icons/mdi/chevron-down";
 import MdiChevronRight from "~icons/mdi/chevron-right";
 import MdiFolder from "~icons/mdi/folder";
@@ -6,6 +6,7 @@ import MdiFolderOpen from "~icons/mdi/folder-open";
 import MdiSourceBranch from "~icons/mdi/source-branch";
 import MdiTag from "~icons/mdi/tag";
 import MdiTagOutline from "~icons/mdi/tag-outline";
+import { bridge } from "../../shared/bridge";
 import { useModifierClickSelection } from "../../shared/hooks/useModifierClickSelection";
 import { usePreventSelect } from "../../shared/hooks/usePreventSelect";
 import { usePanelStore } from "../../shared/store/panel-store";
@@ -146,6 +147,26 @@ export function BranchTree() {
   const [currentBranchRowSelected, setCurrentBranchRowSelected] =
     useState(false);
 
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    branch: BranchInfo;
+  } | null>(null);
+
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent, branch: BranchInfo) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setContextMenu({ x: e.clientX, y: e.clientY, branch });
+    },
+    [],
+  );
+
+  const closeContextMenu = useCallback(() => {
+    setContextMenu(null);
+  }, []);
+
   const toggle = (key: string) => {
     setCurrentBranchRowSelected(false);
     setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -252,6 +273,7 @@ export function BranchTree() {
             filteredBranch={filter.branch}
             onBranchClick={handleClick}
             onBranchDoubleClick={handleBranchDoubleClick}
+            onBranchContextMenu={handleContextMenu}
             collapsed={collapsed}
             onToggle={toggle}
           />
@@ -275,6 +297,7 @@ export function BranchTree() {
             filteredBranch={filter.branch}
             onBranchClick={handleClick}
             onBranchDoubleClick={handleBranchDoubleClick}
+            onBranchContextMenu={handleContextMenu}
             collapsed={collapsed}
             onToggle={toggle}
           />
@@ -298,6 +321,17 @@ export function BranchTree() {
           />
         ))}
       </GroupSection>
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <BranchContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          branch={contextMenu.branch}
+          currentBranch={currentBranch}
+          onClose={closeContextMenu}
+        />
+      )}
     </div>
   );
 }
@@ -315,6 +349,7 @@ function TreeNodeView({
   filteredBranch,
   onBranchClick,
   onBranchDoubleClick,
+  onBranchContextMenu,
   collapsed,
   onToggle,
 }: {
@@ -326,6 +361,7 @@ function TreeNodeView({
   filteredBranch: string;
   onBranchClick: (e: React.MouseEvent, name: string) => void;
   onBranchDoubleClick: (name: string) => void;
+  onBranchContextMenu: (e: React.MouseEvent, branch: BranchInfo) => void;
   collapsed: Record<string, boolean>;
   onToggle: (key: string) => void;
 }) {
@@ -354,6 +390,7 @@ function TreeNodeView({
         isFiltered={filteredBranch === branch.name}
         onClick={(e) => onBranchClick(e, branch.name)}
         onDoubleClick={() => onBranchDoubleClick(branch.name)}
+        onContextMenu={(e) => onBranchContextMenu(e, branch)}
         depth={depth}
         behind={branch.behind}
       />
@@ -398,6 +435,7 @@ function TreeNodeView({
             filteredBranch={filteredBranch}
             onBranchClick={onBranchClick}
             onBranchDoubleClick={onBranchDoubleClick}
+            onBranchContextMenu={onBranchContextMenu}
             collapsed={collapsed}
             onToggle={onToggle}
           />
@@ -535,6 +573,7 @@ function BranchItem({
   isFiltered,
   onClick,
   onDoubleClick,
+  onContextMenu,
   depth,
   behind = 0,
 }: {
@@ -545,6 +584,7 @@ function BranchItem({
   isFiltered: boolean;
   onClick: (e: React.MouseEvent) => void;
   onDoubleClick: () => void;
+  onContextMenu: (e: React.MouseEvent) => void;
   depth: number;
   behind?: number;
 }) {
@@ -553,6 +593,7 @@ function BranchItem({
       className={`selectable-row${isSelected ? " selected" : ""}`}
       onClick={onClick}
       onDoubleClick={onDoubleClick}
+      onContextMenu={onContextMenu}
       style={{
         padding: `4px 8px 4px ${20 + depth * 12}px`,
         fontWeight: isCurrent || isFiltered ? 600 : 400,
@@ -590,6 +631,121 @@ function BranchItem({
         >
           ↙ {behind}
         </span>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// BranchContextMenu – right-click context menu for branches
+// ---------------------------------------------------------------------------
+
+function BranchContextMenu({
+  x,
+  y,
+  branch,
+  currentBranch,
+  onClose,
+}: {
+  x: number;
+  y: number;
+  branch: BranchInfo;
+  currentBranch: string;
+  onClose: () => void;
+}) {
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [onClose]);
+
+  const isCurrent = branch.name === currentBranch;
+
+  const handleCheckout = async () => {
+    onClose();
+    try {
+      await bridge.request("checkoutBranch", { branchName: branch.name });
+    } catch (err) {
+      console.error("Checkout failed:", err);
+    }
+  };
+
+  const items: { label: string; action: () => void; disabled?: boolean; separator?: boolean }[] = [];
+
+  if (!isCurrent) {
+    items.push({ label: "Checkout", action: handleCheckout });
+  }
+
+  if (items.length === 0) return null;
+
+  return (
+    <div
+      ref={menuRef}
+      style={{
+        position: "fixed",
+        top: y,
+        left: x,
+        zIndex: 9999,
+        background: "var(--vscode-menu-background, #252526)",
+        border: "1px solid var(--vscode-menu-border, #454545)",
+        borderRadius: 4,
+        padding: "4px 0",
+        minWidth: 160,
+        boxShadow: "0 2px 8px rgba(0,0,0,0.4)",
+      }}
+    >
+      {items.map((item, i) =>
+        item.separator ? (
+          <div
+            key={`sep-${i}`}
+            style={{
+              height: 1,
+              background: "var(--vscode-menu-separatorBackground, #454545)",
+              margin: "4px 0",
+            }}
+          />
+        ) : (
+          <div
+            key={item.label}
+            onClick={item.disabled ? undefined : item.action}
+            style={{
+              padding: "6px 16px",
+              cursor: item.disabled ? "default" : "pointer",
+              opacity: item.disabled ? 0.5 : 1,
+              color: "var(--vscode-menu-foreground, #ccc)",
+              fontSize: "13px",
+              whiteSpace: "nowrap",
+            }}
+            onMouseEnter={(e) => {
+              if (!item.disabled) {
+                (e.currentTarget as HTMLElement).style.background =
+                  "var(--vscode-menu-selectionBackground, #094771)";
+                (e.currentTarget as HTMLElement).style.color =
+                  "var(--vscode-menu-selectionForeground, #fff)";
+              }
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLElement).style.background = "transparent";
+              (e.currentTarget as HTMLElement).style.color =
+                "var(--vscode-menu-foreground, #ccc)";
+            }}
+          >
+            {item.label}
+          </div>
+        ),
       )}
     </div>
   );

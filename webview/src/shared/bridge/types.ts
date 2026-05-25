@@ -42,7 +42,8 @@ export type CommandType =
   | "acceptTheirs"
   | "confirmCancelMerge"
   | "closeMergeEditor"
-  | "openFile";
+  | "openFile"
+  | "checkoutBranch";
 
 export interface Bridge {
   request(
