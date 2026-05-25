@@ -50,27 +50,11 @@ function IconFolder({ style }: { style?: React.CSSProperties }) {
       viewBox="0 0 16 16"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.2"
+      strokeWidth="1.1"
+      strokeLinejoin="round"
       style={{ verticalAlign: "middle", ...style }}
     >
-      <path d="M2 4.5v7a1 1 0 001 1h10a1 1 0 001-1V6.5a1 1 0 00-1-1H8.5l-1.5-1.5H3a1 1 0 00-1 1z" />
-    </svg>
-  );
-}
-
-function IconFolderOpen({ style }: { style?: React.CSSProperties }) {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.2"
-      style={{ verticalAlign: "middle", ...style }}
-    >
-      <path d="M2 4.5v7a1 1 0 001 1h10a1 1 0 001-1V6.5a1 1 0 00-1-1H8.5l-1.5-1.5H3a1 1 0 00-1 1z" />
-      <path d="M2 7.5h12" strokeWidth="0.8" />
+      <path d="M1.5 4v8.5h13V5.5h-7l-1.5-1.5z" />
     </svg>
   );
 }
@@ -631,15 +615,12 @@ function TreeNodeView({
           opacity: 0.8,
           display: "flex",
           alignItems: "center",
-          gap: 4,
+          gap: 2,
         }}
       >
-        {isCollapsed ? (
-          <IconFolder style={{ color: "#90794e" }} />
-        ) : (
-          <IconFolderOpen style={{ color: "#90794e" }} />
-        )}{" "}
-        {node.name}
+        {isCollapsed ? <IconChevronRight /> : <IconChevronDown />}
+        <IconFolder style={{ color: "var(--description-fg)" }} />
+        <span style={{ marginLeft: 2 }}>{node.name}</span>
       </div>
       {!isCollapsed &&
         node.children.map((child) => (
@@ -712,15 +693,12 @@ function TagTreeNodeView({
           opacity: 0.8,
           display: "flex",
           alignItems: "center",
-          gap: 4,
+          gap: 2,
         }}
       >
-        {isCollapsed ? (
-          <IconFolder style={{ color: "#90794e" }} />
-        ) : (
-          <IconFolderOpen style={{ color: "#90794e" }} />
-        )}{" "}
-        {node.name}
+        {isCollapsed ? <IconChevronRight /> : <IconChevronDown />}
+        <IconFolder style={{ color: "var(--description-fg)" }} />
+        <span style={{ marginLeft: 2 }}>{node.name}</span>
       </div>
       {!isCollapsed &&
         node.children.map((child) => (
