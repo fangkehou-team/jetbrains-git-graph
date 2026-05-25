@@ -654,29 +654,42 @@ function BranchContextMenu({
   onClose: () => void;
 }) {
   const menuRef = useRef<HTMLDivElement>(null);
-  const [position, setPosition] = useState({ top: y, left: x });
+  const [position, setPosition] = useState<{
+    top: number;
+    left: number;
+  } | null>(null);
 
-  // Adjust position after render to keep menu within viewport
+  // Adjust position after first render to keep menu within viewport
   useEffect(() => {
     const menu = menuRef.current;
     if (!menu) return;
-    const rect = menu.getBoundingClientRect();
-    const viewportH = window.innerHeight;
-    const viewportW = window.innerWidth;
 
-    let top = y;
-    let left = x;
+    // Use requestAnimationFrame to ensure the menu is rendered and measurable
+    requestAnimationFrame(() => {
+      const rect = menu.getBoundingClientRect();
+      const viewportH = window.innerHeight;
+      const viewportW = window.innerWidth;
 
-    // If menu overflows bottom, flip upward or clamp
-    if (top + rect.height > viewportH) {
-      top = Math.max(4, viewportH - rect.height - 4);
-    }
-    // If menu overflows right
-    if (left + rect.width > viewportW) {
-      left = Math.max(4, viewportW - rect.width - 4);
-    }
+      let top = y;
+      let left = x;
 
-    setPosition({ top, left });
+      // If menu overflows bottom, show above cursor or clamp to bottom
+      if (top + rect.height > viewportH) {
+        // Try showing above the click point
+        const above = y - rect.height;
+        if (above >= 4) {
+          top = above;
+        } else {
+          top = Math.max(4, viewportH - rect.height - 4);
+        }
+      }
+      // If menu overflows right
+      if (left + rect.width > viewportW) {
+        left = Math.max(4, viewportW - rect.width - 4);
+      }
+
+      setPosition({ top, left });
+    });
   }, [x, y]);
 
   useEffect(() => {
@@ -914,8 +927,8 @@ function BranchContextMenu({
       ref={menuRef}
       style={{
         position: "fixed",
-        top: position.top,
-        left: position.left,
+        top: position ? position.top : -9999,
+        left: position ? position.left : -9999,
         zIndex: 9999,
         background: "var(--vscode-menu-background, #252526)",
         border: "1px solid var(--vscode-menu-border, #454545)",
@@ -925,6 +938,7 @@ function BranchContextMenu({
         maxHeight: "calc(100vh - 8px)",
         overflowY: "auto",
         boxShadow: "0 2px 8px rgba(0,0,0,0.4)",
+        visibility: position ? "visible" : "hidden",
       }}
     >
       {items.map((item, i) =>
