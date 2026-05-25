@@ -4,6 +4,88 @@ import { bridge } from "../../shared/bridge";
 import { usePanelStore } from "../../shared/store/panel-store";
 import type { DiffFile } from "../../shared/types/git";
 
+// Inline SVG icons for menu items
+function IconDiff() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.2"
+    >
+      <path d="M3 8h4M5 6v4" />
+      <path d="M9 8h4" />
+    </svg>
+  );
+}
+
+function IconEdit() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.2"
+    >
+      <path d="M11.5 2.5l2 2-8 8H3.5v-2z" strokeLinejoin="round" />
+      <path d="M9.5 4.5l2 2" />
+    </svg>
+  );
+}
+
+function IconRevert() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.2"
+    >
+      <path d="M4 7l-2 2 2 2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M2 9h8a3 3 0 000-6H7" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconCherryPick() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.2"
+    >
+      <circle cx="8" cy="5" r="2.5" />
+      <path d="M8 7.5v5" />
+      <path d="M6 10.5c1 1 3 1 4 0" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconCopy() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.2"
+    >
+      <rect x="5" y="5" width="8" height="8" rx="1" />
+      <path d="M3 11V3h8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 interface FileContextMenuProps {
   x: number;
   y: number;
@@ -178,20 +260,26 @@ export function FileContextMenu({ x, y, file, onClose }: FileContextMenuProps) {
     label: string;
     action: () => void;
     separator?: boolean;
+    icon?: React.ReactNode;
   }[] = [
-    { label: "Show Diff", action: handleShowDiff },
+    { label: "Show Diff", action: handleShowDiff, icon: <IconDiff /> },
     { label: "", action: () => {}, separator: true },
-    { label: "Edit Source", action: handleEditSource },
+    { label: "Edit Source", action: handleEditSource, icon: <IconEdit /> },
     { label: "Open Repository Version", action: handleOpenRepoVersion },
     { label: "", action: () => {}, separator: true },
-    { label: "Revert Selected Changes", action: handleRevertFileChanges },
+    {
+      label: "Revert Selected Changes",
+      action: handleRevertFileChanges,
+      icon: <IconRevert />,
+    },
     {
       label: "Cherry-Pick Selected Changes",
       action: handleCherryPickFileChanges,
+      icon: <IconCherryPick />,
     },
     { label: "", action: () => {}, separator: true },
-    { label: "Copy Path", action: handleCopyPath },
-    { label: "Copy File Name", action: handleCopyFileName },
+    { label: "Copy Path", action: handleCopyPath, icon: <IconCopy /> },
+    { label: "Copy File Name", action: handleCopyFileName, icon: <IconCopy /> },
   ];
 
   const menu = (
@@ -228,11 +316,14 @@ export function FileContextMenu({ x, y, file, onClose }: FileContextMenuProps) {
             key={item.label}
             onClick={item.action}
             style={{
-              padding: "6px 16px",
+              padding: "6px 12px",
               cursor: "pointer",
               color: "var(--vscode-menu-foreground, #ccc)",
               fontSize: "13px",
               whiteSpace: "nowrap",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
             }}
             onMouseEnter={(e) => {
               (e.currentTarget as HTMLElement).style.background =
@@ -246,6 +337,9 @@ export function FileContextMenu({ x, y, file, onClose }: FileContextMenuProps) {
                 "var(--vscode-menu-foreground, #ccc)";
             }}
           >
+            <span style={{ width: 14, flexShrink: 0, opacity: 0.7 }}>
+              {item.icon ?? null}
+            </span>
             {item.label}
           </div>
         ),
