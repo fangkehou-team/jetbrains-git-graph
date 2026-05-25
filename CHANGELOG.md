@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.3.0] - 2025-05-25
+
+### Changed
+- Input border colors match IDEA: default `#c4c4c4`, focus/hover `#3574f0`
+
 ## [0.2.9] - 2025-05-25
 
 ### Fixed

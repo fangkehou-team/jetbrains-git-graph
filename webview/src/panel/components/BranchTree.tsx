@@ -376,7 +376,7 @@ export function BranchTree() {
               width: "100%",
               padding: "4px 24px",
               fontSize: "12px",
-              border: "1px solid var(--vscode-input-border, #3c3c3c)",
+              border: "1px solid var(--vscode-input-border, #c4c4c4)",
               background: "var(--vscode-input-background, #1e1e1e)",
               color: "var(--vscode-input-foreground, #ccc)",
               borderRadius: 3,
@@ -385,20 +385,20 @@ export function BranchTree() {
             }}
             onFocus={(e) => {
               (e.target as HTMLElement).style.borderColor =
-                "var(--vscode-focusBorder, #007fd4)";
+                "var(--vscode-focusBorder, #3574f0)";
             }}
             onBlur={(e) => {
               (e.target as HTMLElement).style.borderColor =
-                "var(--vscode-input-border, #3c3c3c)";
+                "var(--vscode-input-border, #c4c4c4)";
             }}
             onMouseEnter={(e) => {
               (e.target as HTMLElement).style.borderColor =
-                "var(--vscode-focusBorder, #007fd4)";
+                "var(--vscode-focusBorder, #3574f0)";
             }}
             onMouseLeave={(e) => {
               if (document.activeElement !== e.target) {
                 (e.target as HTMLElement).style.borderColor =
-                  "var(--vscode-input-border, #3c3c3c)";
+                  "var(--vscode-input-border, #c4c4c4)";
               }
             }}
           />
@@ -792,7 +792,7 @@ function BranchItem({
             ? "var(--list-hoverBackground, rgba(0,0,0,0.04))"
             : undefined,
         color: isSelected ? "var(--selected-fg)" : "inherit",
-        outline: isFiltered ? "1px solid var(--focus-border, #007fd4)" : "none",
+        outline: isFiltered ? "1px solid var(--focus-border, #3574f0)" : "none",
         display: "flex",
         alignItems: "center",
         gap: 4,
