@@ -59,10 +59,25 @@ export function FileChangeTree() {
     setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  if (commitFiles.length === 0) {
+  const filter = usePanelStore((s) => s.filter);
+
+  // When file filter is active, only show that file
+  const displayFiles = filter.file
+    ? commitFiles.filter((f) => (f.newPath || f.oldPath) === filter.file)
+    : commitFiles;
+
+  if (displayFiles.length === 0 && commitFiles.length === 0) {
     return (
       <div style={{ padding: 12, opacity: 0.5 }}>
         Select a commit to see changed files
+      </div>
+    );
+  }
+
+  if (displayFiles.length === 0 && filter.file) {
+    return (
+      <div style={{ padding: 12, opacity: 0.5 }}>
+        No changes to {filter.file.split("/").pop()} in this commit
       </div>
     );
   }
@@ -134,7 +149,7 @@ export function FileChangeTree() {
       {/* Scrollable content area */}
       <div style={{ flex: 1, overflow: "auto", overflowX: "hidden" }}>
         <FileTree
-          files={commitFiles}
+          files={displayFiles}
           viewMode={viewMode}
           selectedFiles={selectedFiles}
           onFileClick={handleFileClick}
