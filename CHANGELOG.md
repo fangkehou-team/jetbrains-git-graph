@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.2.6] - 2025-05-25
+
+### Fixed
+- Progress bar animation improved: thicker (3px), faster (1s), gradient glow effect for better visibility
+
 ## [0.2.5] - 2025-05-25
 
 ### Fixed

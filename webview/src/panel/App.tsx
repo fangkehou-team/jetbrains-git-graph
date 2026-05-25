@@ -17,24 +17,25 @@ function ProgressBar({ visible }: { visible: boolean }) {
         top: 0,
         left: 0,
         right: 0,
-        height: 2,
+        height: 3,
         zIndex: 10000,
         overflow: "hidden",
-        background: "var(--vscode-progressBar-background, rgba(0,122,204,0.2))",
+        background: "rgba(0, 122, 204, 0.15)",
       }}
     >
       <div
         style={{
           height: "100%",
-          width: "30%",
-          background: "var(--vscode-progressBar-background, #007acc)",
-          animation: "progress-slide 1.5s infinite ease-in-out",
+          width: "40%",
+          background:
+            "linear-gradient(90deg, transparent, #007acc 30%, #3794ff 70%, transparent)",
+          animation: "progress-slide 1s infinite linear",
         }}
       />
       <style>
         {`@keyframes progress-slide {
           0% { transform: translateX(-100%); }
-          100% { transform: translateX(433%); }
+          100% { transform: translateX(250%); }
         }`}
       </style>
     </div>
