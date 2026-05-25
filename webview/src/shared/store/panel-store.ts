@@ -211,6 +211,7 @@ export const usePanelStore = create<PanelStore>((set, get) => ({
 
   async fetchInitialData() {
     set({ loading: true });
+    const start = Date.now();
     try {
       const { filter } = get();
       const [graphResult, branches, tags] = await Promise.all([
@@ -251,7 +252,7 @@ export const usePanelStore = create<PanelStore>((set, get) => ({
             branches: branchList,
             tags: tagList,
             currentBranch: current,
-            loading: false,
+
             hasMore: commits.length >= 200,
             selectedCommitHash: validHashes[0],
             selectedCommitHashes: validHashes,
@@ -280,7 +281,7 @@ export const usePanelStore = create<PanelStore>((set, get) => ({
         branches: branchList,
         tags: tagList,
         currentBranch: current,
-        loading: false,
+
         hasMore: commits.length >= 200,
         selectedCommitHash: firstVisible?.hash ?? null,
         selectedCommitHashes: firstVisible ? [firstVisible.hash] : [],
@@ -302,6 +303,11 @@ export const usePanelStore = create<PanelStore>((set, get) => ({
       }
     } catch (err) {
       console.error("fetchInitialData failed:", err);
+    } finally {
+      const elapsed = Date.now() - start;
+      if (elapsed < 1000) {
+        await new Promise((r) => setTimeout(r, 1000 - elapsed));
+      }
       set({ loading: false });
     }
   },

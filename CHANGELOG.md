@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.2.9] - 2025-05-25
+
+### Fixed
+- Refresh button (built-in) also respects minimum 1s progress bar display
+
 ## [0.2.8] - 2025-05-25
 
 ### Fixed
