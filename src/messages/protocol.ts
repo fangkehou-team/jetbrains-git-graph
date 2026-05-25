@@ -61,7 +61,9 @@ export type EventType =
   | "gitStateChanged"
   | "mergeStateChanged"
   | "themeChanged"
-  | "showFileHistory";
+  | "showFileHistory"
+  | "operationStart"
+  | "operationEnd";
 
 export enum ErrorCode {
   GIT_NOT_FOUND = "GIT_NOT_FOUND",

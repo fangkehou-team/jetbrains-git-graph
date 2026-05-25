@@ -14,6 +14,17 @@ import { GitWatcher } from "./watchers/gitWatcher";
 
 const NOT_GIT_REPO = { status: "not_git_repo" as const, data: null };
 
+/** Wrap a git operation with progress events */
+function withProgress(
+  messageRouter: MessageRouter,
+  fn: () => Promise<unknown>,
+): Promise<unknown> {
+  messageRouter.broadcastEvent("operationStart", {});
+  return fn().finally(() => {
+    messageRouter.broadcastEvent("operationEnd", {});
+  });
+}
+
 export function activate(context: vscode.ExtensionContext) {
   // 1. MessageRouter (always created)
   const messageRouter = new MessageRouter();
@@ -348,9 +359,11 @@ export function activate(context: vscode.ExtensionContext) {
   messageRouter.handle("checkoutBranch", async (params) => {
     if (!gitService) return NOT_GIT_REPO;
     const branchName = params.branchName as string;
-    await gitService.checkout(branchName);
-    messageRouter.broadcastEvent("gitStateChanged", { scope: "all" });
-    return { success: true };
+    return withProgress(messageRouter, async () => {
+      await gitService.checkout(branchName);
+      messageRouter.broadcastEvent("gitStateChanged", { scope: "all" });
+      return { success: true };
+    });
   });
 
   messageRouter.handle("createBranch", async (params) => {
@@ -388,58 +401,72 @@ export function activate(context: vscode.ExtensionContext) {
   messageRouter.handle("mergeBranch", async (params) => {
     if (!gitService) return NOT_GIT_REPO;
     const branchName = params.branchName as string;
-    await gitService.merge(branchName);
-    messageRouter.broadcastEvent("gitStateChanged", { scope: "all" });
-    return { success: true };
+    return withProgress(messageRouter, async () => {
+      await gitService.merge(branchName);
+      messageRouter.broadcastEvent("gitStateChanged", { scope: "all" });
+      return { success: true };
+    });
   });
 
   messageRouter.handle("rebaseBranch", async (params) => {
     if (!gitService) return NOT_GIT_REPO;
     const onto = params.onto as string;
-    await gitService.rebase(onto);
-    messageRouter.broadcastEvent("gitStateChanged", { scope: "all" });
-    return { success: true };
+    return withProgress(messageRouter, async () => {
+      await gitService.rebase(onto);
+      messageRouter.broadcastEvent("gitStateChanged", { scope: "all" });
+      return { success: true };
+    });
   });
 
   messageRouter.handle("checkoutAndRebase", async (params) => {
     if (!gitService) return NOT_GIT_REPO;
     const branchToCheckout = params.branchToCheckout as string;
     const rebaseOnto = params.rebaseOnto as string;
-    await gitService.checkoutAndRebase(branchToCheckout, rebaseOnto);
-    messageRouter.broadcastEvent("gitStateChanged", { scope: "all" });
-    return { success: true };
+    return withProgress(messageRouter, async () => {
+      await gitService.checkoutAndRebase(branchToCheckout, rebaseOnto);
+      messageRouter.broadcastEvent("gitStateChanged", { scope: "all" });
+      return { success: true };
+    });
   });
 
   messageRouter.handle("pushBranch", async (params) => {
     if (!gitService) return NOT_GIT_REPO;
     const branchName = params.branchName as string;
     const force = params.force as boolean | undefined;
-    await gitService.push(branchName, force ?? false);
-    messageRouter.broadcastEvent("gitStateChanged", { scope: "all" });
-    return { success: true };
+    return withProgress(messageRouter, async () => {
+      await gitService.push(branchName, force ?? false);
+      messageRouter.broadcastEvent("gitStateChanged", { scope: "all" });
+      return { success: true };
+    });
   });
 
   messageRouter.handle("pullBranch", async (params) => {
     if (!gitService) return NOT_GIT_REPO;
     const branchName = params.branchName as string | undefined;
-    await gitService.pull(branchName);
-    messageRouter.broadcastEvent("gitStateChanged", { scope: "all" });
-    return { success: true };
+    return withProgress(messageRouter, async () => {
+      await gitService.pull(branchName);
+      messageRouter.broadcastEvent("gitStateChanged", { scope: "all" });
+      return { success: true };
+    });
   });
 
   messageRouter.handle("fetchBranch", async () => {
     if (!gitService) return NOT_GIT_REPO;
-    await gitService.fetch();
-    messageRouter.broadcastEvent("gitStateChanged", { scope: "all" });
-    return { success: true };
+    return withProgress(messageRouter, async () => {
+      await gitService.fetch();
+      messageRouter.broadcastEvent("gitStateChanged", { scope: "all" });
+      return { success: true };
+    });
   });
 
   messageRouter.handle("cherryPick", async (params) => {
     if (!gitService) return NOT_GIT_REPO;
     const hash = params.hash as string;
-    await gitService.cherryPick(hash);
-    messageRouter.broadcastEvent("gitStateChanged", { scope: "all" });
-    return { success: true };
+    return withProgress(messageRouter, async () => {
+      await gitService.cherryPick(hash);
+      messageRouter.broadcastEvent("gitStateChanged", { scope: "all" });
+      return { success: true };
+    });
   });
 
   messageRouter.handle("checkoutCommit", async (params) => {
@@ -472,17 +499,21 @@ export function activate(context: vscode.ExtensionContext) {
     if (!gitService) return NOT_GIT_REPO;
     const hash = params.hash as string;
     const mode = params.mode as "soft" | "mixed" | "hard";
-    await gitService.resetToCommit(hash, mode);
-    messageRouter.broadcastEvent("gitStateChanged", { scope: "all" });
-    return { success: true };
+    return withProgress(messageRouter, async () => {
+      await gitService.resetToCommit(hash, mode);
+      messageRouter.broadcastEvent("gitStateChanged", { scope: "all" });
+      return { success: true };
+    });
   });
 
   messageRouter.handle("revertCommit", async (params) => {
     if (!gitService) return NOT_GIT_REPO;
     const hash = params.hash as string;
-    await gitService.revertCommit(hash);
-    messageRouter.broadcastEvent("gitStateChanged", { scope: "all" });
-    return { success: true };
+    return withProgress(messageRouter, async () => {
+      await gitService.revertCommit(hash);
+      messageRouter.broadcastEvent("gitStateChanged", { scope: "all" });
+      return { success: true };
+    });
   });
 
   messageRouter.handle("createBranchFromCommit", async (params) => {
