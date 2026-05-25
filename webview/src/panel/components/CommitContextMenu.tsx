@@ -4,6 +4,78 @@ import { bridge } from "../../shared/bridge";
 import { usePanelStore } from "../../shared/store/panel-store";
 import type { Commit } from "../../shared/types/git";
 
+// IntelliJ-style icons for commit context menu
+function IconCopy() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <rect
+        x="2.5"
+        y="3.5"
+        width="9"
+        height="10"
+        rx="1.5"
+        stroke="currentColor"
+      />
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M11 2h.6C12.37 2 13 2.63 13 3.4v.51c0 .03 0 .06 0 .09v7.55c.6-.44 1-1.15 1-1.95V3.4C14 2.07 12.93 1 11.6 1H6.4c-.8 0-1.51.39-1.95 1H6.4H11z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
+function IconCherryPick() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <circle cx="4.5" cy="4" r="2" stroke="currentColor" />
+      <path
+        d="M4.5 11.5H8.5C9.6 11.5 10.5 10.6 10.5 9.5V8"
+        stroke="currentColor"
+      />
+      <path d="M4.5 6.5V14.5" stroke="currentColor" strokeLinecap="round" />
+      <circle cx="10.5" cy="6" r="2" stroke="currentColor" />
+    </svg>
+  );
+}
+
+function IconRevert() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M5.85 1.85a.5.5 0 00-.7-.7L1.65 4.65 1.3 5l.35.35 3.5 3.5a.5.5 0 00.7-.7L3.21 5.5H10.5a3.5 3.5 0 010 7H5.5a.5.5 0 000 1h5a4.5 4.5 0 000-9H3.21l2.64-2.65z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
+function IconBranch() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <circle cx="4.5" cy="4" r="2" stroke="currentColor" />
+      <path
+        d="M4.5 11.5H8.5C9.6 11.5 10.5 10.6 10.5 9.5V8"
+        stroke="currentColor"
+      />
+      <path d="M4.5 6.5V14.5" stroke="currentColor" strokeLinecap="round" />
+      <circle cx="10.5" cy="6" r="2" stroke="currentColor" />
+    </svg>
+  );
+}
+
+function IconTag() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <path d="M3 2.5h4.5l6 6-4.5 4.5-6-6V2.5z" stroke="currentColor" />
+      <circle cx="5.5" cy="5" r="1" fill="currentColor" />
+    </svg>
+  );
+}
+
 interface CommitContextMenuProps {
   x: number;
   y: number;
@@ -209,28 +281,40 @@ export function CommitContextMenu({
     label: string;
     action: () => void;
     separator?: boolean;
+    icon?: React.ReactNode;
   }[] = [
-    { label: `Copy Revision Number`, action: handleCopyHash },
-    { label: "Cherry-Pick", action: handleCherryPick },
+    {
+      label: `Copy Revision Number`,
+      action: handleCopyHash,
+      icon: <IconCopy />,
+    },
+    {
+      label: "Cherry-Pick",
+      action: handleCherryPick,
+      icon: <IconCherryPick />,
+    },
     { label: "", action: () => {}, separator: true },
     { label: "Checkout Revision", action: handleCheckoutRevision },
     { label: "", action: () => {}, separator: true },
     {
       label: "Reset Current Branch to Here (Mixed)...",
       action: handleResetMixed,
+      icon: <IconRevert />,
     },
     {
       label: "Reset Current Branch to Here (Soft)...",
       action: handleResetSoft,
+      icon: <IconRevert />,
     },
     {
       label: "Reset Current Branch to Here (Hard)...",
       action: handleResetHard,
+      icon: <IconRevert />,
     },
-    { label: "Revert Commit", action: handleRevert },
+    { label: "Revert Commit", action: handleRevert, icon: <IconRevert /> },
     { label: "", action: () => {}, separator: true },
-    { label: "New Branch...", action: handleNewBranch },
-    { label: "New Tag...", action: handleNewTag },
+    { label: "New Branch...", action: handleNewBranch, icon: <IconBranch /> },
+    { label: "New Tag...", action: handleNewTag, icon: <IconTag /> },
   ];
 
   const menu = (
@@ -267,11 +351,14 @@ export function CommitContextMenu({
             key={item.label}
             onClick={item.action}
             style={{
-              padding: "6px 16px",
+              padding: "6px 12px",
               cursor: "pointer",
               color: "var(--vscode-menu-foreground, #ccc)",
               fontSize: "13px",
               whiteSpace: "nowrap",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
             }}
             onMouseEnter={(e) => {
               (e.currentTarget as HTMLElement).style.background =
@@ -285,6 +372,9 @@ export function CommitContextMenu({
                 "var(--vscode-menu-foreground, #ccc)";
             }}
           >
+            <span style={{ width: 16, flexShrink: 0, opacity: 0.7 }}>
+              {item.icon ?? null}
+            </span>
             {item.label}
           </div>
         ),
