@@ -305,16 +305,14 @@ function SearchInput({
           boxSizing: "border-box",
         }}
         onFocus={(e) => {
-          (e.target as HTMLElement).style.borderColor =
-            "var(--vscode-focusBorder, #3574f0)";
+          (e.target as HTMLElement).style.borderColor = "#3574f0";
         }}
         onBlur={(e) => {
           (e.target as HTMLElement).style.borderColor =
             "var(--vscode-input-border, #c4c4c4)";
         }}
         onMouseEnter={(e) => {
-          (e.target as HTMLElement).style.borderColor =
-            "var(--vscode-focusBorder, #3574f0)";
+          (e.target as HTMLElement).style.borderColor = "#3574f0";
         }}
         onMouseLeave={(e) => {
           if (document.activeElement !== e.target) {
@@ -589,8 +587,7 @@ function SearchableDropdown({
             boxSizing: "border-box",
           }}
           onFocus={(e) => {
-            (e.target as HTMLElement).style.borderColor =
-              "var(--vscode-focusBorder, #3574f0)";
+            (e.target as HTMLElement).style.borderColor = "#3574f0";
           }}
           onBlur={(e) => {
             (e.target as HTMLElement).style.borderColor =

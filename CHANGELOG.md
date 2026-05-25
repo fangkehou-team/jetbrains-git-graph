@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.3.4] - 2025-05-25
+
+### Fixed
+- Input hover/focus border now uses hardcoded IDEA blue (#3574f0) instead of VS Code theme variable which was overriding it
+
 ## [0.3.3] - 2025-05-25
 
 ### Changed
