@@ -12,6 +12,7 @@ const GRAPH_PADDING = 8;
 const DEFAULT_COLUMN_WIDTHS: ColumnWidths = {
   author: 100,
   date: 130,
+  hash: 70,
 };
 
 export function CommitList({
@@ -92,7 +93,7 @@ export function CommitList({
   const [resizing, setResizing] = useState<string | null>(null);
 
   const startResize = useCallback(
-    (column: "author" | "date", e: React.MouseEvent) => {
+    (column: "author" | "date" | "hash", e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
       const startX = e.clientX;
@@ -106,7 +107,7 @@ export function CommitList({
       const onMouseMove = (ev: MouseEvent) => {
         const diff = startX - ev.clientX;
         const newWidth = Math.max(
-          column === "author" ? 40 : 60,
+          column === "author" ? 40 : column === "date" ? 60 : 50,
           startWidth + diff,
         );
         setColumnWidths((prev) => ({ ...prev, [column]: newWidth }));
@@ -177,6 +178,19 @@ export function CommitList({
           }}
         >
           Date
+        </span>
+        <ColumnResizeHandle
+          active={resizing === "hash"}
+          onMouseDown={(e) => startResize("hash", e)}
+        />
+        <span
+          style={{
+            flexShrink: 0,
+            width: columnWidths.hash,
+            paddingLeft: 8,
+          }}
+        >
+          Hash
         </span>
       </div>
 

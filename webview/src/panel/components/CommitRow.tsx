@@ -64,6 +64,7 @@ function buildRefDisplayItems(refs: RefInfo[]): Array<{
 export interface ColumnWidths {
   author: number;
   date: number;
+  hash: number;
 }
 
 export function CommitRow({
@@ -180,6 +181,23 @@ export function CommitRow({
         }}
       >
         {formatDateTime(commit.authorDate)}
+      </span>
+
+      {/* Hash column */}
+      <span
+        style={{
+          flexShrink: 0,
+          width: columnWidths.hash,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+          opacity: 0.5,
+          paddingLeft: 8,
+          fontFamily: "monospace",
+          fontSize: "0.9em",
+        }}
+      >
+        {commit.shortHash}
       </span>
     </div>
   );
