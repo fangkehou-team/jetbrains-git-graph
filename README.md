@@ -2,106 +2,122 @@
 
 <div align="center">
 
-<h1>JetGit (Fork)</h1>
+<img src="https://raw.githubusercontent.com/aotemj/jetbrains-git-graph/main/images/assets/logo-128.png" width="80" />
 
-JetBrains-style Git visualization for VS Code — Git Graph, Diff viewer, and 3-Way Merge Editor in one extension.
+<h1>IDEA-Like Git - Graph & Context Menu</h1>
 
-> This is a fork of [zhyc9de/jet-git](https://github.com/zhyc9de/jet-git) with additional IntelliJ IDEA-style features.
+IntelliJ-style Git graph, branch operations, cherry-pick, rebase, and 3-way merge editor for VS Code.
+
+> Fork of [zhyc9de/jet-git](https://github.com/zhyc9de/jet-git) with full IntelliJ IDEA-style context menus and UI enhancements.
 
 </div>
 
-## What's New in This Fork
+---
 
-### Branch Context Menu (IntelliJ-style)
+## Features
 
-Right-click any branch in the left panel to access:
+### Branch Context Menu
 
-- **Checkout** — switch to the branch
-- **New Branch from...** — create a new branch from the selected one
-- **Checkout and Rebase onto current** — checkout and rebase onto current branch
-- **Rebase current onto branch** — rebase current branch onto selected
-- **Merge into current** — merge selected branch into current
-- **Rename** — rename a local branch
-- **Delete** — delete branch (with force-delete fallback)
-- **Update** — pull from remote
-- **Push** — push to origin
+Right-click any branch to checkout, create, merge, rebase, rename, delete, push, or pull — just like IntelliJ IDEA.
+
+![Branch Checkout](https://raw.githubusercontent.com/aotemj/jetbrains-git-graph/main/images/checkout.gif)
 
 ### Commit Context Menu
 
-Right-click any commit in the history to access:
+Right-click any commit to copy hash, cherry-pick, checkout revision, reset, revert, create branch or tag.
 
-- **Copy Revision Number** — copy full hash to clipboard
-- **Cherry-Pick** — cherry-pick the commit
-- **Checkout Revision** — checkout the commit (detached HEAD)
-- **Reset Current Branch to Here** — soft/mixed/hard reset
-- **Revert Commit** — create a revert commit
-- **New Branch...** — create branch from this commit
-- **New Tag...** — create tag at this commit
+![Commit Context Menu](https://raw.githubusercontent.com/aotemj/jetbrains-git-graph/main/images/commit-context-menu.gif)
 
 ### Changed Files Context Menu
 
-Right-click any file in the Changed Files panel:
+Right-click files in the Changed Files panel: show diff, edit source, open repository version, revert/cherry-pick file changes, copy path.
 
-- **Show Diff** — open diff editor
-- **Edit Source** — open file in editor
-- **Open Repository Version** — view file at that commit
-- **Revert Selected Changes** — restore file to parent commit state
-- **Cherry-Pick Selected Changes** — apply file changes to working tree
-- **Copy Path / Copy File Name** — copy to clipboard
+### Git Graph
 
-### UI Enhancements
+![Git Graph](https://raw.githubusercontent.com/aotemj/jetbrains-git-graph/main/images/git-graph.png)
 
-- **Branch search** — filter branches/tags by name in the left panel
-- **Commit filters** — filter by Branch, User, and Date range in the toolbar
-- **Resizable columns** — drag to adjust Author, Date, and Hash column widths
-- **Hash column** — commit short hash displayed in a dedicated column
-- **Current branch indicator** — shows branch name next to "Current Branch"
-- **IntelliJ icons** — all icons use official IntelliJ IDEA SVG icons (Apache 2.0)
-- **Context menu improvements** — proper viewport positioning, portal rendering, dismiss on outside click/scroll/blur
+- **Branch Tree** — branches organized by Local / Remote / Tags with search filter
+- **Commit List** — color-coded branch lines, resizable columns (Message, Author, Date, Hash)
+- **Detail Panel** — commit message and changed file tree
+- **Filters** — filter by Branch, User, Date range
+
+### 3-Way Merge Editor
+
+![3-Way Merge Editor](https://raw.githubusercontent.com/aotemj/jetbrains-git-graph/main/images/three-way-merge.png)
+
+- Three-column layout: Theirs | Result | Yours
+- Conflict highlighting with per-block action buttons
+- Full syntax highlighting
+
+### Conflict Management
+
+![Conflict List](https://raw.githubusercontent.com/aotemj/jetbrains-git-graph/main/images/conflicts-list.png)
+
+- Quick actions: Accept Yours / Accept Theirs / Merge
+- Integration with VS Code Source Control panel
 
 ---
 
-## Original Features
+## All Context Menu Actions
 
-### Git Graph — Intuitive Commit History
+<details>
+<summary><b>Branch (right-click)</b></summary>
 
-![Git Graph](./images/git-graph.png)
+- Checkout
+- New Branch from...
+- Checkout and Rebase onto current
+- Rebase current onto branch
+- Merge into current
+- Rename (local only)
+- Delete (with force-delete fallback)
+- Update (pull)
+- Push
 
-- **Branch Tree** on the left: branches organized by Current Branch / Local / Remote / Tags
-- **Commit List** in the center: color-coded branch lines with labels, author, and timestamp
-- **Detail Panel** on the right: full commit message and changed file list
-- Search commits and filter by branch
-- Click any changed file to open the **Diff Editor**
+</details>
 
-### 3-Way Merge Editor — Clear Three-Way Merging
+<details>
+<summary><b>Commit (right-click)</b></summary>
 
-![3-Way Merge Editor](./images/three-way-merge.png)
+- Copy Revision Number
+- Cherry-Pick
+- Checkout Revision
+- Reset Current Branch to Here (Mixed/Soft/Hard)
+- Revert Commit
+- New Branch...
+- New Tag...
 
-- Three-column layout: **Left (Theirs)** | **Center (Result)** | **Right (Yours)**
-- Conflict regions highlighted in red/green
-- Per-block action buttons for quick conflict resolution
-- Full syntax highlighting
+</details>
 
-### Conflict List — Efficient Conflict Management
+<details>
+<summary><b>Changed Files (right-click)</b></summary>
 
-![Conflict List](./images/conflicts-list.png)
+- Show Diff
+- Edit Source
+- Open Repository Version
+- Revert Selected Changes
+- Cherry-Pick Selected Changes
+- Copy Path
+- Copy File Name
 
-- Merge info banner with conflict file list
-- Quick actions: **Accept Yours** / **Accept Theirs** / **Merge...**
-- Seamless integration with VS Code Source Control panel
+</details>
+
+---
 
 ## Installation
 
-Install from `.vsix` file:
+**From Marketplace:**
 
-1. Download the latest `.vsix` from releases
-2. In VS Code: `Cmd+Shift+P` → "Extensions: Install from VSIX..."
-3. Select the downloaded file
+Search for **"IDEA-Like Git"** in VS Code Extensions.
+
+**From .vsix:**
+
+1. Download the latest `.vsix` from [releases](https://github.com/aotemj/jetbrains-git-graph/releases)
+2. `Cmd+Shift+P` → "Extensions: Install from VSIX..."
 
 ## Requirements
 
-- VS Code 1.85.0 or later
-- Git installed and available in your PATH
+- VS Code 1.85.0+
+- Git installed and in PATH
 
 ## Local Development
 
@@ -112,19 +128,19 @@ pnpm install
 cd webview && pnpm install && cd ..
 ```
 
-Open the project in VS Code. Press **F5** to launch the Extension Development Host.
+Press **F5** to launch Extension Development Host.
 
 ```bash
-pnpm run watch       # Watch mode (extension + webview)
-pnpm run build       # Full production build
-pnpm run vsce:package  # Package as .vsix
+pnpm run watch          # Watch mode
+pnpm run build          # Production build
+pnpm run vsce:package   # Package as .vsix
 ```
 
 ## Credits
 
-- Original project: [zhyc9de/jet-git](https://github.com/zhyc9de/jet-git)
-- Icons: [IntelliJ IDEA Icons](https://intellij-icons.jetbrains.design/) (Apache 2.0 License)
+- Original: [zhyc9de/jet-git](https://github.com/zhyc9de/jet-git)
+- Icons: [IntelliJ IDEA Icons](https://intellij-icons.jetbrains.design/) (Apache 2.0)
 
 ## License
 
-This project is [MIT](./LICENSE) licensed.
+[MIT](./LICENSE)
