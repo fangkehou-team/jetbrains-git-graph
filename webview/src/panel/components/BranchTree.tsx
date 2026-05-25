@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import MdiChevronDown from "~icons/mdi/chevron-down";
 import MdiChevronRight from "~icons/mdi/chevron-right";
 import MdiFolder from "~icons/mdi/folder";
@@ -323,15 +324,17 @@ export function BranchTree() {
       </GroupSection>
 
       {/* Context Menu */}
-      {contextMenu && (
-        <BranchContextMenu
-          x={contextMenu.x}
-          y={contextMenu.y}
-          branch={contextMenu.branch}
-          currentBranch={currentBranch}
-          onClose={closeContextMenu}
-        />
-      )}
+      {contextMenu &&
+        createPortal(
+          <BranchContextMenu
+            x={contextMenu.x}
+            y={contextMenu.y}
+            branch={contextMenu.branch}
+            currentBranch={currentBranch}
+            onClose={closeContextMenu}
+          />,
+          document.body,
+        )}
     </div>
   );
 }
@@ -704,8 +707,15 @@ function BranchContextMenu({
     const handleBlur = () => {
       onClose();
     };
-    const handleScroll = () => {
-      onClose();
+    const handleScroll = (e: Event) => {
+      // Only close if scroll happens outside the menu itself
+      if (
+        menuRef.current &&
+        e.target instanceof Node &&
+        !menuRef.current.contains(e.target)
+      ) {
+        onClose();
+      }
     };
     const handleContextMenu = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
