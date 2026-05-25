@@ -257,6 +257,16 @@ export function BranchTree() {
             (e.target as HTMLElement).style.borderColor =
               "var(--vscode-input-border, #3c3c3c)";
           }}
+          onMouseEnter={(e) => {
+            (e.target as HTMLElement).style.borderColor =
+              "var(--vscode-focusBorder, #007fd4)";
+          }}
+          onMouseLeave={(e) => {
+            if (document.activeElement !== e.target) {
+              (e.target as HTMLElement).style.borderColor =
+                "var(--vscode-input-border, #3c3c3c)";
+            }
+          }}
         />
       </div>
 
