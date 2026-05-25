@@ -1,17 +1,140 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import MdiChevronDown from "~icons/mdi/chevron-down";
-import MdiChevronRight from "~icons/mdi/chevron-right";
-import MdiFolder from "~icons/mdi/folder";
-import MdiFolderOpen from "~icons/mdi/folder-open";
-import MdiSourceBranch from "~icons/mdi/source-branch";
-import MdiTag from "~icons/mdi/tag";
-import MdiTagOutline from "~icons/mdi/tag-outline";
 import { bridge } from "../../shared/bridge";
 import { useModifierClickSelection } from "../../shared/hooks/useModifierClickSelection";
 import { usePreventSelect } from "../../shared/hooks/usePreventSelect";
 import { usePanelStore } from "../../shared/store/panel-store";
 import type { BranchInfo, TagInfo } from "../../shared/types/git";
+
+// ---------------------------------------------------------------------------
+// Inline SVG Icons (stroke-based, IDEA style)
+// ---------------------------------------------------------------------------
+
+function IconChevronDown({ style }: { style?: React.CSSProperties }) {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      style={{ verticalAlign: "middle", ...style }}
+    >
+      <polyline points="4,6 8,10 12,6" />
+    </svg>
+  );
+}
+
+function IconChevronRight({ style }: { style?: React.CSSProperties }) {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      style={{ verticalAlign: "middle", ...style }}
+    >
+      <polyline points="6,4 10,8 6,12" />
+    </svg>
+  );
+}
+
+function IconFolder({ style }: { style?: React.CSSProperties }) {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.2"
+      style={{ verticalAlign: "middle", ...style }}
+    >
+      <path d="M2 4.5v7a1 1 0 001 1h10a1 1 0 001-1V6.5a1 1 0 00-1-1H8.5l-1.5-1.5H3a1 1 0 00-1 1z" />
+    </svg>
+  );
+}
+
+function IconFolderOpen({ style }: { style?: React.CSSProperties }) {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.2"
+      style={{ verticalAlign: "middle", ...style }}
+    >
+      <path d="M2 4.5v7a1 1 0 001 1h10a1 1 0 001-1V6.5a1 1 0 00-1-1H8.5l-1.5-1.5H3a1 1 0 00-1 1z" />
+      <path d="M2 7.5h12" strokeWidth="0.8" />
+    </svg>
+  );
+}
+
+function IconBranch({ style }: { style?: React.CSSProperties }) {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.2"
+      style={{ verticalAlign: "middle", ...style }}
+    >
+      <circle cx="5" cy="3.5" r="1.5" />
+      <circle cx="5" cy="12.5" r="1.5" />
+      <circle cx="11" cy="5.5" r="1.5" />
+      <line x1="5" y1="5" x2="5" y2="11" />
+      <path d="M5 5c0 1.5 1 2.5 6 0.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconTag({ style }: { style?: React.CSSProperties }) {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.2"
+      style={{ verticalAlign: "middle", ...style }}
+    >
+      <path
+        d="M2.5 2.5h4.5l6.5 6.5-4.5 4.5-6.5-6.5V2.5z"
+        strokeLinejoin="round"
+      />
+      <circle cx="5.5" cy="5.5" r="1" />
+    </svg>
+  );
+}
+
+function IconTagOutline({ style }: { style?: React.CSSProperties }) {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.2"
+      style={{ verticalAlign: "middle", ...style }}
+    >
+      <path
+        d="M2.5 2.5h4.5l6.5 6.5-4.5 4.5-6.5-6.5V2.5z"
+        strokeLinejoin="round"
+        strokeDasharray="2 1.5"
+      />
+      <circle cx="5.5" cy="5.5" r="1" />
+    </svg>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Tree data structure
@@ -472,11 +595,10 @@ function TreeNodeView({
       <BranchItem
         icon={
           isCurrent ? (
-            <MdiTag style={{ verticalAlign: "middle", color: "#d4a017" }} />
+            <IconTag style={{ color: "#d4a017" }} />
           ) : (
-            <MdiSourceBranch
+            <IconBranch
               style={{
-                verticalAlign: "middle",
                 color: "var(--description-fg)",
               }}
             />
@@ -513,11 +635,9 @@ function TreeNodeView({
         }}
       >
         {isCollapsed ? (
-          <MdiFolder style={{ verticalAlign: "middle", color: "#90794e" }} />
+          <IconFolder style={{ color: "#90794e" }} />
         ) : (
-          <MdiFolderOpen
-            style={{ verticalAlign: "middle", color: "#90794e" }}
-          />
+          <IconFolderOpen style={{ color: "#90794e" }} />
         )}{" "}
         {node.name}
       </div>
@@ -573,9 +693,7 @@ function TagTreeNodeView({
           gap: 4,
         }}
       >
-        <MdiTagOutline
-          style={{ verticalAlign: "middle", color: "var(--description-fg)" }}
-        />
+        <IconTagOutline style={{ color: "var(--description-fg)" }} />
         {node.name}
       </div>
     );
@@ -598,11 +716,9 @@ function TagTreeNodeView({
         }}
       >
         {isCollapsed ? (
-          <MdiFolder style={{ verticalAlign: "middle", color: "#90794e" }} />
+          <IconFolder style={{ color: "#90794e" }} />
         ) : (
-          <MdiFolderOpen
-            style={{ verticalAlign: "middle", color: "#90794e" }}
-          />
+          <IconFolderOpen style={{ color: "#90794e" }} />
         )}{" "}
         {node.name}
       </div>
@@ -651,12 +767,7 @@ function GroupSection({
           gap: 4,
         }}
       >
-        {collapsed ? (
-          <MdiChevronRight style={{ verticalAlign: "middle" }} />
-        ) : (
-          <MdiChevronDown style={{ verticalAlign: "middle" }} />
-        )}{" "}
-        {title}
+        {collapsed ? <IconChevronRight /> : <IconChevronDown />} {title}
       </div>
       {!collapsed && children}
     </div>
