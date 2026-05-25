@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.3.2] - 2025-05-25
+
+### Added
+- Branch filter dropdown now has a search input for quick filtering when there are many branches
+
 ## [0.3.1] - 2025-05-25
 
 ### Fixed

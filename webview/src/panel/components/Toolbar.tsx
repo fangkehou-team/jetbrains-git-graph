@@ -111,23 +111,15 @@ export function Toolbar() {
           onClear={handleClearBranch}
         />
         {showBranchDropdown && (
-          <FilterDropdown onClose={() => setShowBranchDropdown(false)}>
-            {filter.branch && (
-              <DropdownItem
-                label="All branches"
-                active={false}
-                onClick={handleClearBranch}
-              />
-            )}
-            {branchNames.map((name) => (
-              <DropdownItem
-                key={name}
-                label={name}
-                active={name === filter.branch}
-                onClick={() => handleSelectBranch(name)}
-              />
-            ))}
-          </FilterDropdown>
+          <SearchableDropdown
+            items={branchNames}
+            activeItem={filter.branch}
+            placeholder="Select branch..."
+            onSelect={handleSelectBranch}
+            onClear={filter.branch ? handleClearBranch : undefined}
+            clearLabel="All branches"
+            onClose={() => setShowBranchDropdown(false)}
+          />
         )}
       </div>
 
@@ -573,6 +565,144 @@ function DropdownItem({
       }}
     >
       {label}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// SearchableDropdown — dropdown with search input for filtering items
+// ---------------------------------------------------------------------------
+
+function SearchableDropdown({
+  items,
+  activeItem,
+  placeholder,
+  onSelect,
+  onClear,
+  clearLabel,
+  onClose,
+}: {
+  items: string[];
+  activeItem: string;
+  placeholder: string;
+  onSelect: (item: string) => void;
+  onClear?: () => void;
+  clearLabel?: string;
+  onClose: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [query, setQuery] = useState("");
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    const handleMouseDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    const handleScroll = (e: Event) => {
+      if (
+        ref.current &&
+        e.target instanceof Node &&
+        !ref.current.contains(e.target)
+      ) {
+        onClose();
+      }
+    };
+    const handleBlur = () => onClose();
+    document.addEventListener("mousedown", handleMouseDown, true);
+    document.addEventListener("scroll", handleScroll, true);
+    window.addEventListener("blur", handleBlur);
+    return () => {
+      document.removeEventListener("mousedown", handleMouseDown, true);
+      document.removeEventListener("scroll", handleScroll, true);
+      window.removeEventListener("blur", handleBlur);
+    };
+  }, [onClose]);
+
+  const filtered = query
+    ? items.filter((item) => item.toLowerCase().includes(query.toLowerCase()))
+    : items;
+
+  return (
+    <div
+      ref={ref}
+      style={{
+        position: "absolute",
+        top: "100%",
+        left: 0,
+        marginTop: 4,
+        zIndex: 9999,
+        background: "var(--vscode-menu-background, #fff)",
+        border: "1px solid var(--vscode-menu-border, #e0e0e0)",
+        borderRadius: 4,
+        padding: "4px 0",
+        minWidth: 200,
+        maxHeight: 280,
+        display: "flex",
+        flexDirection: "column",
+        boxShadow: "0 3px 12px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.05)",
+      }}
+    >
+      <div style={{ padding: "4px 8px" }}>
+        <input
+          ref={inputRef}
+          type="text"
+          placeholder={placeholder}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") onClose();
+          }}
+          style={{
+            width: "100%",
+            padding: "4px 8px",
+            fontSize: "12px",
+            border: "1px solid var(--vscode-input-border, #c4c4c4)",
+            background: "var(--vscode-input-background, #fff)",
+            color: "var(--vscode-input-foreground, #333)",
+            borderRadius: 3,
+            outline: "none",
+            boxSizing: "border-box",
+          }}
+          onFocus={(e) => {
+            (e.target as HTMLElement).style.borderColor =
+              "var(--vscode-focusBorder, #3574f0)";
+          }}
+          onBlur={(e) => {
+            (e.target as HTMLElement).style.borderColor =
+              "var(--vscode-input-border, #c4c4c4)";
+          }}
+        />
+      </div>
+      <div style={{ flex: 1, overflowY: "auto" }}>
+        {onClear && clearLabel && (
+          <DropdownItem label={clearLabel} active={false} onClick={onClear} />
+        )}
+        {filtered.map((item) => (
+          <DropdownItem
+            key={item}
+            label={item}
+            active={item === activeItem}
+            onClick={() => onSelect(item)}
+          />
+        ))}
+        {filtered.length === 0 && (
+          <div
+            style={{
+              padding: "8px 12px",
+              fontSize: "12px",
+              opacity: 0.5,
+            }}
+          >
+            No matches
+          </div>
+        )}
+      </div>
     </div>
   );
 }
