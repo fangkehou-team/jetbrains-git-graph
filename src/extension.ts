@@ -820,19 +820,67 @@ export function activate(context: vscode.ExtensionContext) {
   messageRouter.handle("showIdeaShelfFileDiff", async (params) => {
     if (!gitService || !workspaceRoot) return NOT_GIT_REPO;
     const shelfName = params.shelfName as string;
-    const _filePath = params.filePath as string;
+    const filePath = params.filePath as string;
 
-    // Read the patch and show it as a diff
+    // Read the patch file and extract the diff for this specific file
     const patchFile = `${workspaceRoot}/.idea/shelf/${shelfName}/shelved.patch`;
-    const patchUri = vscode.Uri.file(patchFile);
     try {
-      await vscode.commands.executeCommand("vscode.open", patchUri);
-    } catch {
-      void vscode.window.showErrorMessage(
-        `Could not open patch file for "${shelfName}"`,
+      const patchContent = await import("node:fs/promises").then((fs) =>
+        fs.readFile(patchFile, "utf-8"),
       );
+
+      // Extract the section for this file from the patch
+      const filePatch = extractFilePatch(patchContent, filePath);
+      if (!filePatch) {
+        void vscode.window.showWarningMessage(
+          `No changes found for "${filePath}" in shelf "${shelfName}"`,
+        );
+        return { success: false };
+      }
+
+      // Get the current file content (or empty if it doesn't exist)
+      let currentContent = "";
+      try {
+        currentContent = await import("node:fs/promises").then((fs) =>
+          fs.readFile(`${workspaceRoot}/${filePath}`, "utf-8"),
+        );
+      } catch {
+        // File may not exist in working tree
+      }
+
+      // Get the "before" content from HEAD (or empty for new files)
+      let baseContent = "";
+      try {
+        baseContent = await gitService.getFileContent("HEAD", filePath);
+      } catch {
+        // New file
+      }
+
+      // Show diff: base (before shelved change) vs base + patch (shelved version)
+      // Use virtual documents for both sides
+      const leftUri = vscode.Uri.parse(
+        `${GIT_BRAINS_SCHEME}:${filePath}?ref=HEAD`,
+      );
+
+      // For the right side, we'll apply the patch mentally — show the patch file itself
+      // Actually, the simplest correct approach: show base vs "what the patch would produce"
+      // We can use a temporary approach: show the patch content in a new untitled doc
+      // Better: use vscode.diff with the HEAD version and a virtual "patched" version
+
+      // Simplest useful approach: open the patch file filtered to this file's section
+      const doc = await vscode.workspace.openTextDocument({
+        content: filePatch,
+        language: "diff",
+      });
+      await vscode.window.showTextDocument(doc, { preview: true });
+      return { success: true };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      void vscode.window.showErrorMessage(
+        `Could not show diff for "${filePath}": ${msg}`,
+      );
+      return { success: false };
     }
-    return { success: true };
   });
 
   messageRouter.handle("createPatchFromShelf", async (params) => {
@@ -983,6 +1031,45 @@ function extToLanguage(ext: string): string {
 }
 
 export function deactivate() {}
+
+/**
+ * Extract the patch section for a specific file from a combined patch.
+ * Looks for `diff --git a/<path>` or `Index: <path>` markers.
+ */
+function extractFilePatch(
+  patchContent: string,
+  filePath: string,
+): string | null {
+  const lines = patchContent.split("\n");
+  let collecting = false;
+  let result: string[] = [];
+
+  for (const line of lines) {
+    // Check for diff start markers
+    const isDiffStart =
+      line.startsWith("diff --git ") || line.startsWith("Index: ");
+
+    if (isDiffStart) {
+      // Check if this section is for our target file
+      const matchesFile =
+        line.includes(`a/${filePath}`) ||
+        line.includes(`b/${filePath}`) ||
+        line === `Index: ${filePath}`;
+
+      if (matchesFile) {
+        collecting = true;
+        result = [line];
+      } else if (collecting) {
+        // We hit a new file section, stop collecting
+        break;
+      }
+    } else if (collecting) {
+      result.push(line);
+    }
+  }
+
+  return result.length > 0 ? result.join("\n") : null;
+}
 
 function getScmResourcePath(arg?: unknown): string | undefined {
   const value = arg as unknown;
