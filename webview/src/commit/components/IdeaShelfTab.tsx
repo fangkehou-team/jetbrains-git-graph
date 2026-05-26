@@ -21,6 +21,10 @@ export function IdeaShelfTab() {
     filePath: string;
     shelfName: string;
   } | null>(null);
+  const [bgContextMenu, setBgContextMenu] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
 
   useEffect(() => {
     fetchIdeaShelves();
@@ -66,9 +70,23 @@ export function IdeaShelfTab() {
     setFileContextMenu(null);
   }, []);
 
+  const handleBgContextMenu = useCallback((e: React.MouseEvent) => {
+    // Only show if right-clicking on the background (not on an item)
+    if ((e.target as HTMLElement).closest(".shelf-item-container")) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu(null);
+    setFileContextMenu(null);
+    setBgContextMenu({ x: e.clientX, y: e.clientY });
+  }, []);
+
+  const closeBgContextMenu = useCallback(() => {
+    setBgContextMenu(null);
+  }, []);
+
   if (ideaShelves.length === 0) {
     return (
-      <div className="shelf-list">
+      <div className="shelf-list" onContextMenu={handleBgContextMenu}>
         <div className="shelf-empty">
           <p>No shelved changes</p>
           <p style={{ fontSize: 11, marginTop: 8 }}>
@@ -76,12 +94,19 @@ export function IdeaShelfTab() {
             .idea/shelf/ (IDEA-compatible format).
           </p>
         </div>
+        {bgContextMenu && (
+          <ShelfBgContextMenu
+            x={bgContextMenu.x}
+            y={bgContextMenu.y}
+            onClose={closeBgContextMenu}
+          />
+        )}
       </div>
     );
   }
 
   return (
-    <div className="shelf-list">
+    <div className="shelf-list" onContextMenu={handleBgContextMenu}>
       {ideaShelves.map((entry) => (
         <IdeaShelfItem
           key={entry.name}
@@ -107,6 +132,13 @@ export function IdeaShelfTab() {
           filePath={fileContextMenu.filePath}
           shelfName={fileContextMenu.shelfName}
           onClose={closeFileContextMenu}
+        />
+      )}
+      {bgContextMenu && (
+        <ShelfBgContextMenu
+          x={bgContextMenu.x}
+          y={bgContextMenu.y}
+          onClose={closeBgContextMenu}
         />
       )}
     </div>
@@ -219,6 +251,85 @@ function ChevronIcon() {
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
       <path
         d="M6 11.5L9.5 8L6 4.5"
+        stroke="currentColor"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+/* ─── Background Context Menu (right-click on empty area) ────────── */
+
+function ShelfBgContextMenu({
+  x,
+  y,
+  onClose,
+}: {
+  x: number;
+  y: number;
+  onClose: () => void;
+}) {
+  const menuRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (!node) return;
+      const handleClick = (e: MouseEvent) => {
+        if (!node.contains(e.target as Node)) onClose();
+      };
+      const handleKey = (e: KeyboardEvent) => {
+        if (e.key === "Escape") onClose();
+      };
+      document.addEventListener("mousedown", handleClick);
+      document.addEventListener("keydown", handleKey);
+      return () => {
+        document.removeEventListener("mousedown", handleClick);
+        document.removeEventListener("keydown", handleKey);
+      };
+    },
+    [onClose],
+  );
+
+  const handleImport = useCallback(() => {
+    import("../../shared/bridge").then(({ bridge }) => {
+      bridge.request("importPatches");
+    });
+    onClose();
+  }, [onClose]);
+
+  return (
+    <div
+      className="commit-context-menu"
+      ref={menuRef}
+      style={{ position: "fixed", left: x, top: y, zIndex: 1000 }}
+    >
+      <button
+        type="button"
+        className="commit-context-menu-item"
+        onClick={handleImport}
+      >
+        <ImportIcon />
+        <span>Import Patches...</span>
+      </button>
+    </div>
+  );
+}
+
+function ImportIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+      className="commit-context-menu-icon"
+    >
+      <path
+        d="M8 2V10M8 10L5 7M8 10L11 7"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M2 12V13.5C2 14.0523 2.44772 14.5 3 14.5H13C13.5523 14.5 14 14.0523 14 13.5V12"
         stroke="currentColor"
         strokeLinecap="round"
       />
