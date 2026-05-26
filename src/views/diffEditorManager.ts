@@ -4,7 +4,66 @@ import type { DiffFile } from "../git/types";
 import { GIT_BRAINS_SCHEME } from "./gitContentProvider";
 
 export class DiffEditorManager {
+  /** Current diff navigation state */
+  private diffFiles: DiffFile[] = [];
+  private diffCommit = "";
+  private diffIndex = -1;
+  private diffBaseRef?: string;
+  private diffCherryPickHashes?: string[];
+
   constructor(private readonly gitService: GitService) {}
+
+  /** Set the file list for diff navigation */
+  setDiffFileList(
+    files: DiffFile[],
+    commit: string,
+    baseRef?: string,
+    cherryPickHashes?: string[],
+  ): void {
+    this.diffFiles = files;
+    this.diffCommit = commit;
+    this.diffBaseRef = baseRef;
+    this.diffCherryPickHashes = cherryPickHashes;
+    this.diffIndex = -1;
+  }
+
+  /** Navigate to next file diff */
+  async nextDiff(): Promise<boolean> {
+    if (this.diffFiles.length === 0) return false;
+    this.diffIndex = Math.min(this.diffIndex + 1, this.diffFiles.length - 1);
+    await this.openCurrentDiff();
+    return true;
+  }
+
+  /** Navigate to previous file diff */
+  async prevDiff(): Promise<boolean> {
+    if (this.diffFiles.length === 0) return false;
+    this.diffIndex = Math.max(this.diffIndex - 1, 0);
+    await this.openCurrentDiff();
+    return true;
+  }
+
+  private async openCurrentDiff(): Promise<void> {
+    const file = this.diffFiles[this.diffIndex];
+    if (!file) return;
+    const filePath = file.newPath || file.oldPath;
+
+    // Show status message
+    const total = this.diffFiles.length;
+    const current = this.diffIndex + 1;
+    void vscode.window.setStatusBarMessage(
+      `$(arrow-right) File ${current}/${total}: ${filePath.split("/").pop()}  —  Press again to go to the next file`,
+      5000,
+    );
+
+    await this.openDiffEditor(
+      this.diffCommit,
+      filePath,
+      file,
+      this.diffBaseRef,
+      this.diffCherryPickHashes,
+    );
+  }
 
   async openDiffEditor(
     commit: string,

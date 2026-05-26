@@ -104,6 +104,18 @@
         "category": "IDEA Git"
       },
       {
+        "command": "git-brains.nextDiff",
+        "title": "Next File Diff",
+        "icon": "$(arrow-down)",
+        "category": "JetGit"
+      },
+      {
+        "command": "git-brains.prevDiff",
+        "title": "Previous File Diff",
+        "icon": "$(arrow-up)",
+        "category": "JetGit"
+      },
+      {
         "command": "git-brains.commitPanel.refresh",
         "title": "Refresh Changes",
         "icon": "$(refresh)",
@@ -164,7 +176,21 @@
           "group": "git@1"
         }
       ]
-    }
+    },
+    "keybindings": [
+      {
+        "command": "git-brains.nextDiff",
+        "key": "alt+shift+right",
+        "mac": "alt+shift+right",
+        "when": "isInDiffEditor"
+      },
+      {
+        "command": "git-brains.prevDiff",
+        "key": "alt+shift+left",
+        "mac": "alt+shift+left",
+        "when": "isInDiffEditor"
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "pnpm run package",

@@ -429,7 +429,7 @@ export const usePanelStore = create<PanelStore>((set, get) => ({
 
   async openDiffEditor(commitHash: string, file: DiffFile) {
     try {
-      const { selectedCommitHashes } = get();
+      const { selectedCommitHashes, commitFiles } = get();
       const filePath = file.newPath || file.oldPath;
       const isMulti = selectedCommitHashes.length > 1;
 
@@ -439,12 +439,14 @@ export const usePanelStore = create<PanelStore>((set, get) => ({
           filePath,
           file,
           cherryPickHashes: selectedCommitHashes,
+          fileList: commitFiles,
         });
       } else {
         await bridge.request("openDiffEditor", {
           commit: commitHash,
           filePath,
           file,
+          fileList: commitFiles,
         });
       }
     } catch (err) {

@@ -110,6 +110,16 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("git-brains.refreshLog", () => {
       messageRouter.broadcastEvent("gitStateChanged", { scope: "all" });
     }),
+    vscode.commands.registerCommand("git-brains.nextDiff", async () => {
+      if (diffManager) {
+        await diffManager.nextDiff();
+      }
+    }),
+    vscode.commands.registerCommand("git-brains.prevDiff", async () => {
+      if (diffManager) {
+        await diffManager.prevDiff();
+      }
+    }),
     vscode.commands.registerCommand("git-brains.openConflicts", () => {
       conflictsManager.openConflictsPanel();
     }),
@@ -156,6 +166,7 @@ export function activate(context: vscode.ExtensionContext) {
     const fileParam = params.file as string | DiffFile | undefined;
     const baseRef = params.baseRef as string | undefined;
     const cherryPickHashes = params.cherryPickHashes as string[] | undefined;
+    const fileList = params.fileList as DiffFile[] | undefined;
     const fileMeta =
       typeof fileParam === "object" && fileParam !== null
         ? (fileParam as DiffFile)
@@ -167,6 +178,30 @@ export function activate(context: vscode.ExtensionContext) {
       fileMeta?.oldPath;
 
     if (commit && filePath) {
+      // Set file list for next/prev navigation
+      if (fileList && fileList.length > 0) {
+        diffManager.setDiffFileList(
+          fileList,
+          commit,
+          baseRef,
+          cherryPickHashes,
+        );
+        // Set current index to the file being opened
+        const idx = fileList.findIndex(
+          (f) => (f.newPath || f.oldPath) === filePath,
+        );
+        if (idx >= 0) {
+          diffManager.setDiffFileList(
+            fileList,
+            commit,
+            baseRef,
+            cherryPickHashes,
+          );
+          // Directly set the index
+          (diffManager as any).diffIndex = idx;
+        }
+      }
+
       await diffManager.openDiffEditor(
         commit,
         filePath,
