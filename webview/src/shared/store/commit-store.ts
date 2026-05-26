@@ -417,5 +417,7 @@ export const useCommitStore = create<CommitStore>((set, get) => ({
 bridge.onEvent((event) => {
   if (event === "commitStateChanged" || event === "gitStateChanged") {
     useCommitStore.getState().fetchChanges();
+    useCommitStore.getState().fetchIdeaShelves();
+    useCommitStore.getState().fetchShelves();
   }
 });
