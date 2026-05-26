@@ -66,7 +66,12 @@ export type CommandType =
   | "unshelveChanges"
   | "deleteShelve"
   | "showDiffForWorkingFile"
-  | "getAmendMessage";
+  | "getAmendMessage"
+  | "getIdeaShelves"
+  | "ideaShelveChanges"
+  | "ideaUnshelveChanges"
+  | "deleteIdeaShelf"
+  | "showIdeaShelfFileDiff";
 
 export interface Bridge {
   request(

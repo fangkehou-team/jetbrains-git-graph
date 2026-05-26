@@ -10,6 +10,7 @@ import type {
   DiffFile,
   FileStatus,
   GraphLayoutResult,
+  IdeaShelfEntry,
   LaneSnapshot,
   LogOptions,
   MergeState,
@@ -786,6 +787,373 @@ export class GitService {
 
   async deleteShelve(stashId: string): Promise<void> {
     await this.execGit(["stash", "drop", stashId]);
+  }
+
+  // ─── IDEA Shelf (patch-file based) Operations ─────────────────────
+
+  async getIdeaShelves(): Promise<IdeaShelfEntry[]> {
+    const shelfDir = path.join(this.cwd, ".idea", "shelf");
+    try {
+      await fs.access(shelfDir);
+    } catch {
+      return [];
+    }
+
+    const entries: IdeaShelfEntry[] = [];
+    const dirContents = await fs.readdir(shelfDir);
+
+    for (const item of dirContents) {
+      if (!item.endsWith(".xml")) continue;
+      const xmlPath = path.join(shelfDir, item);
+      try {
+        const xmlContent = await fs.readFile(xmlPath, "utf-8");
+        const entry = this.parseIdeaShelfXml(xmlContent, shelfDir);
+        if (entry) entries.push(entry);
+      } catch {
+        // skip malformed entries
+      }
+    }
+
+    // Sort by date descending (newest first)
+    entries.sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+    );
+    return entries;
+  }
+
+  private parseIdeaShelfXml(
+    xmlContent: string,
+    shelfDir: string,
+  ): IdeaShelfEntry | null {
+    // Parse: <changelist name="..." date="..." recycled="...">
+    const nameMatch = xmlContent.match(/changelist\s+name="([^"]*)"/);
+    const dateMatch = xmlContent.match(/\bdate="(\d+)"/);
+    const pathMatch = xmlContent.match(
+      /option\s+name="PATH"\s+value="([^"]*)"/,
+    );
+    const descMatch = xmlContent.match(
+      /option\s+name="DESCRIPTION"\s+value="([^"]*)"/,
+    );
+
+    if (!nameMatch || !pathMatch) return null;
+
+    const name = nameMatch[1];
+    const dateMs = dateMatch ? Number.parseInt(dateMatch[1], 10) : Date.now();
+    const date = new Date(dateMs).toISOString();
+    const description = descMatch?.[1] ?? "";
+
+    // Resolve $PROJECT_DIR$ to workspace root
+    const patchRelative = pathMatch[1].replace(/\$PROJECT_DIR\$/g, this.cwd);
+    const patchPath = path.isAbsolute(patchRelative)
+      ? patchRelative
+      : path.join(shelfDir, patchRelative);
+
+    // Parse files from patch
+    const files = this.parseFilesFromPatchPath(patchPath);
+
+    return { name, description, date, patchPath, files };
+  }
+
+  private parseFilesFromPatchPath(patchPath: string): string[] {
+    try {
+      const content = require("node:fs").readFileSync(patchPath, "utf-8");
+      return this.parseFilesFromPatch(content);
+    } catch {
+      return [];
+    }
+  }
+
+  private parseFilesFromPatch(patchContent: string): string[] {
+    const files: string[] = [];
+    const lines = patchContent.split("\n");
+    for (const line of lines) {
+      // Match: diff --git a/path b/path
+      const diffMatch = line.match(/^diff --git a\/(.+?) b\/(.+)$/);
+      if (diffMatch) {
+        files.push(diffMatch[2]);
+        continue;
+      }
+      // Match: Index: path
+      const indexMatch = line.match(/^Index:\s+(.+)$/);
+      if (indexMatch) {
+        files.push(indexMatch[1]);
+      }
+    }
+    return [...new Set(files)];
+  }
+
+  async ideaShelveChanges(
+    message: string,
+    filePaths?: string[],
+  ): Promise<void> {
+    const shelfDir = path.join(this.cwd, ".idea", "shelf");
+    await fs.mkdir(shelfDir, { recursive: true });
+
+    const sanitizedName = this.sanitizeShelfName(message || "Changes");
+    const uniqueName = await this.getUniqueShelfName(shelfDir, sanitizedName);
+
+    // Create shelf subdirectory
+    const entryDir = path.join(shelfDir, uniqueName);
+    await fs.mkdir(entryDir, { recursive: true });
+
+    // Generate patch
+    let patchContent = "";
+    if (filePaths && filePaths.length > 0) {
+      patchContent = await this.generatePatchForFiles(filePaths);
+    } else {
+      patchContent = await this.generatePatchAll();
+    }
+
+    if (!patchContent.trim()) {
+      // Clean up empty directory
+      await fs.rm(entryDir, { recursive: true, force: true });
+      throw new Error("No changes to shelve");
+    }
+
+    // Write patch file
+    const patchFilePath = path.join(entryDir, "shelved.patch");
+    await fs.writeFile(patchFilePath, patchContent, "utf-8");
+
+    // Write XML metadata
+    const timestamp = Date.now();
+    const xmlContent = `<changelist name="${this.escapeXml(uniqueName)}" date="${timestamp}" recycled="false">\n  <option name="PATH" value="$PROJECT_DIR$/.idea/shelf/${uniqueName}/shelved.patch" />\n  <option name="DESCRIPTION" value="${this.escapeXml(message || "")}" />\n</changelist>\n`;
+    const xmlPath = path.join(shelfDir, `${uniqueName}.xml`);
+    await fs.writeFile(xmlPath, xmlContent, "utf-8");
+
+    // Revert the files in working tree
+    if (filePaths && filePaths.length > 0) {
+      await this.revertFiles(filePaths);
+    } else {
+      await this.revertAllChanges();
+    }
+
+    this.invalidateCache();
+  }
+
+  async ideaUnshelveChanges(shelfName: string, drop?: boolean): Promise<void> {
+    const shelfDir = path.join(this.cwd, ".idea", "shelf");
+    const patchPath = path.join(shelfDir, shelfName, "shelved.patch");
+
+    try {
+      const patchContent = await fs.readFile(patchPath, "utf-8");
+      if (patchContent.trim()) {
+        // Apply patch using git apply
+        try {
+          await this.execGit(["apply", "--3way", patchPath]);
+        } catch {
+          // Try without --3way as fallback
+          await this.execGit(["apply", patchPath]);
+        }
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      throw new Error(`Failed to apply shelf "${shelfName}": ${message}`);
+    }
+
+    if (drop) {
+      await this.deleteIdeaShelf(shelfName);
+    }
+
+    this.invalidateCache();
+  }
+
+  async deleteIdeaShelf(shelfName: string): Promise<void> {
+    const shelfDir = path.join(this.cwd, ".idea", "shelf");
+    const entryDir = path.join(shelfDir, shelfName);
+    const xmlPath = path.join(shelfDir, `${shelfName}.xml`);
+
+    // Delete directory
+    try {
+      await fs.rm(entryDir, { recursive: true, force: true });
+    } catch {
+      // ignore
+    }
+
+    // Delete XML file
+    try {
+      await fs.unlink(xmlPath);
+    } catch {
+      // ignore
+    }
+  }
+
+  private sanitizeShelfName(name: string): string {
+    return name
+      .replace(/[<>:"/\\|?*]/g, "_")
+      .replace(/\s+/g, "_")
+      .replace(/_+/g, "_")
+      .replace(/^_|_$/g, "")
+      .substring(0, 100);
+  }
+
+  private async getUniqueShelfName(
+    shelfDir: string,
+    baseName: string,
+  ): Promise<string> {
+    let candidate = baseName;
+    let counter = 1;
+    while (true) {
+      const xmlPath = path.join(shelfDir, `${candidate}.xml`);
+      try {
+        await fs.access(xmlPath);
+        // File exists, try next
+        candidate = `${baseName}${counter}`;
+        counter++;
+      } catch {
+        // File doesn't exist, use this name
+        return candidate;
+      }
+    }
+  }
+
+  private async generatePatchForFiles(filePaths: string[]): Promise<string> {
+    let patch = "";
+
+    // Separate tracked and untracked files
+    const tracked: string[] = [];
+    const untracked: string[] = [];
+
+    for (const filePath of filePaths) {
+      try {
+        await this.execGit(["ls-files", "--error-unmatch", filePath]);
+        tracked.push(filePath);
+      } catch {
+        untracked.push(filePath);
+      }
+    }
+
+    // Generate diff for tracked files (staged + unstaged)
+    if (tracked.length > 0) {
+      try {
+        const diff = await this.execGit(["diff", "HEAD", "--", ...tracked]);
+        patch += diff;
+      } catch {
+        // If HEAD doesn't exist (initial commit), diff against empty tree
+        try {
+          const diff = await this.execGit([
+            "diff",
+            "--cached",
+            "--",
+            ...tracked,
+          ]);
+          patch += diff;
+        } catch {
+          // ignore
+        }
+      }
+    }
+
+    // Generate patch for untracked files
+    for (const filePath of untracked) {
+      const fullPath = path.join(this.cwd, filePath);
+      try {
+        const content = await fs.readFile(fullPath, "utf-8");
+        const lines = content.split("\n");
+        patch += `diff --git a/${filePath} b/${filePath}\n`;
+        patch += "new file mode 100644\n";
+        patch += "--- /dev/null\n";
+        patch += `+++ b/${filePath}\n`;
+        patch += `@@ -0,0 +1,${lines.length} @@\n`;
+        for (const line of lines) {
+          patch += `+${line}\n`;
+        }
+      } catch {
+        // skip files that can't be read
+      }
+    }
+
+    return patch;
+  }
+
+  private async generatePatchAll(): Promise<string> {
+    let patch = "";
+
+    // Get diff for all tracked changes
+    try {
+      const diff = await this.execGit(["diff", "HEAD"]);
+      patch += diff;
+    } catch {
+      try {
+        const diff = await this.execGit(["diff", "--cached"]);
+        patch += diff;
+      } catch {
+        // ignore
+      }
+    }
+
+    // Get untracked files
+    try {
+      const untrackedOutput = await this.execGit([
+        "ls-files",
+        "--others",
+        "--exclude-standard",
+      ]);
+      const untrackedFiles = untrackedOutput.trim().split("\n").filter(Boolean);
+
+      for (const filePath of untrackedFiles) {
+        const fullPath = path.join(this.cwd, filePath);
+        try {
+          const content = await fs.readFile(fullPath, "utf-8");
+          const lines = content.split("\n");
+          patch += `diff --git a/${filePath} b/${filePath}\n`;
+          patch += "new file mode 100644\n";
+          patch += "--- /dev/null\n";
+          patch += `+++ b/${filePath}\n`;
+          patch += `@@ -0,0 +1,${lines.length} @@\n`;
+          for (const line of lines) {
+            patch += `+${line}\n`;
+          }
+        } catch {
+          // skip binary or unreadable files
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    return patch;
+  }
+
+  private async revertFiles(filePaths: string[]): Promise<void> {
+    for (const filePath of filePaths) {
+      try {
+        await this.execGit(["ls-files", "--error-unmatch", filePath]);
+        // Tracked file: checkout from HEAD
+        await this.execGit(["checkout", "HEAD", "--", filePath]);
+      } catch {
+        // Untracked file: delete it
+        const fullPath = path.join(this.cwd, filePath);
+        try {
+          await fs.unlink(fullPath);
+        } catch {
+          // ignore
+        }
+      }
+    }
+  }
+
+  private async revertAllChanges(): Promise<void> {
+    // Reset tracked files
+    try {
+      await this.execGit(["checkout", "HEAD", "--", "."]);
+    } catch {
+      // ignore (e.g. no HEAD yet)
+    }
+    // Remove untracked files
+    try {
+      await this.execGit(["clean", "-fd"]);
+    } catch {
+      // ignore
+    }
+  }
+
+  private escapeXml(str: string): string {
+    return str
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&apos;");
   }
 
   invalidateCache(pattern?: string): void {

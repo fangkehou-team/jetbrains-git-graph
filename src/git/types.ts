@@ -147,3 +147,12 @@ export interface ShelveEntry {
   branch: string;
   files: string[];
 }
+
+/** IDEA-compatible shelf entry (patch-file based in .idea/shelf/) */
+export interface IdeaShelfEntry {
+  name: string;
+  description: string;
+  date: string; // ISO date
+  patchPath: string;
+  files: string[];
+}

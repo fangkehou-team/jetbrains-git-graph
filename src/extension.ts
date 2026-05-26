@@ -778,6 +778,63 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
+  // ─── IDEA Shelf Handlers ────────────────────────────────────────────
+
+  messageRouter.handle("getIdeaShelves", async () => {
+    if (!gitService) return NOT_GIT_REPO;
+    return gitService.getIdeaShelves();
+  });
+
+  messageRouter.handle("ideaShelveChanges", async (params) => {
+    if (!gitService) return NOT_GIT_REPO;
+    const message = params.message as string | undefined;
+    const filePaths = params.filePaths as string[] | undefined;
+    await gitService.ideaShelveChanges(message ?? "", filePaths);
+    messageRouter.broadcastEvent("commitStateChanged", {});
+    return { success: true };
+  });
+
+  messageRouter.handle("ideaUnshelveChanges", async (params) => {
+    if (!gitService) return NOT_GIT_REPO;
+    const shelfName = params.shelfName as string;
+    const drop = (params.drop as boolean) ?? true;
+    await gitService.ideaUnshelveChanges(shelfName, drop);
+    messageRouter.broadcastEvent("commitStateChanged", {});
+    return { success: true };
+  });
+
+  messageRouter.handle("deleteIdeaShelf", async (params) => {
+    if (!gitService) return NOT_GIT_REPO;
+    const shelfName = params.shelfName as string;
+    const choice = await vscode.window.showWarningMessage(
+      `Delete shelf "${shelfName}"? This cannot be undone.`,
+      { modal: true },
+      "Delete",
+    );
+    if (choice !== "Delete") return { success: false };
+    await gitService.deleteIdeaShelf(shelfName);
+    messageRouter.broadcastEvent("commitStateChanged", {});
+    return { success: true };
+  });
+
+  messageRouter.handle("showIdeaShelfFileDiff", async (params) => {
+    if (!gitService || !workspaceRoot) return NOT_GIT_REPO;
+    const shelfName = params.shelfName as string;
+    const _filePath = params.filePath as string;
+
+    // Read the patch and show it as a diff
+    const patchFile = `${workspaceRoot}/.idea/shelf/${shelfName}/shelved.patch`;
+    const patchUri = vscode.Uri.file(patchFile);
+    try {
+      await vscode.commands.executeCommand("vscode.open", patchUri);
+    } catch {
+      void vscode.window.showErrorMessage(
+        `Could not open patch file for "${shelfName}"`,
+      );
+    }
+    return { success: true };
+  });
+
   // 7. GitWatcher (only if GitService is available)
   if (gitService && workspaceRoot) {
     const watcher = new GitWatcher(

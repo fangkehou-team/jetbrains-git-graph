@@ -21,7 +21,7 @@ export function CommitTab() {
     highlightFile,
     showDiff,
     fetchChanges,
-    shelveChanges,
+    ideaShelveChanges,
   } = useCommitStore();
 
   const [contextMenu, setContextMenu] = useState<{
@@ -57,8 +57,8 @@ export function CommitTab() {
       .filter((f) => selectedFiles.has(`${f.path}:${f.staged}`))
       .map((f) => f.path);
     if (selectedPaths.length === 0) return;
-    await shelveChanges("Shelved changes", [...new Set(selectedPaths)]);
-  }, [changes, selectedFiles, shelveChanges]);
+    await ideaShelveChanges("Shelved changes", [...new Set(selectedPaths)]);
+  }, [changes, selectedFiles, ideaShelveChanges]);
 
   const handleContextMenu = useCallback(
     (e: React.MouseEvent, file: WorkingTreeFile) => {

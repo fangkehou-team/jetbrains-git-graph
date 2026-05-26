@@ -1,17 +1,24 @@
 import { useEffect } from "react";
 import { useCommitStore } from "../shared/store/commit-store";
 import { CommitTab } from "./components/CommitTab";
+import { IdeaShelfTab } from "./components/IdeaShelfTab";
 import { ShelfTab } from "./components/ShelfTab";
 import "./commit.css";
 
 export function CommitApp() {
-  const { activeTab, setActiveTab, fetchChanges, fetchShelves } =
-    useCommitStore();
+  const {
+    activeTab,
+    setActiveTab,
+    fetchChanges,
+    fetchShelves,
+    fetchIdeaShelves,
+  } = useCommitStore();
 
   useEffect(() => {
     fetchChanges();
     fetchShelves();
-  }, [fetchChanges, fetchShelves]);
+    fetchIdeaShelves();
+  }, [fetchChanges, fetchShelves, fetchIdeaShelves]);
 
   return (
     <div className="commit-app">
@@ -30,9 +37,18 @@ export function CommitApp() {
         >
           Shelf
         </button>
+        <button
+          type="button"
+          className={`commit-tab ${activeTab === "stash" ? "active" : ""}`}
+          onClick={() => setActiveTab("stash")}
+        >
+          Stash
+        </button>
       </div>
       <div className="commit-content">
-        {activeTab === "commit" ? <CommitTab /> : <ShelfTab />}
+        {activeTab === "commit" && <CommitTab />}
+        {activeTab === "shelf" && <IdeaShelfTab />}
+        {activeTab === "stash" && <ShelfTab />}
       </div>
     </div>
   );

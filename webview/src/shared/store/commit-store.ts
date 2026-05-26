@@ -22,6 +22,14 @@ export interface ShelveEntry {
   files: string[];
 }
 
+export interface IdeaShelfEntry {
+  name: string;
+  description: string;
+  date: string;
+  patchPath: string;
+  files: string[];
+}
+
 type TabType = "commit" | "shelf" | "stash";
 
 interface CommitStore {
@@ -37,6 +45,9 @@ interface CommitStore {
 
   // Shelf
   shelves: ShelveEntry[];
+
+  // IDEA Shelf
+  ideaShelves: IdeaShelfEntry[];
 
   // UI state
   activeTab: TabType;
@@ -65,6 +76,10 @@ interface CommitStore {
   shelveChanges: (message?: string, filePaths?: string[]) => Promise<void>;
   unshelveChanges: (stashId: string, drop?: boolean) => Promise<void>;
   deleteShelve: (stashId: string) => Promise<void>;
+  fetchIdeaShelves: () => Promise<void>;
+  ideaShelveChanges: (message?: string, filePaths?: string[]) => Promise<void>;
+  ideaUnshelveChanges: (shelfName: string, drop?: boolean) => Promise<void>;
+  deleteIdeaShelf: (shelfName: string) => Promise<void>;
   setActiveTab: (tab: TabType) => void;
   toggleGroup: (group: string) => void;
   toggleGroupByDirectory: () => void;
@@ -79,6 +94,7 @@ export const useCommitStore = create<CommitStore>((set, get) => ({
   commitMessage: "",
   amend: false,
   shelves: [],
+  ideaShelves: [],
   activeTab: "commit",
   loading: false,
   expandedGroups: new Set(["changes", "unversioned", "staged"]),
@@ -312,10 +328,60 @@ export const useCommitStore = create<CommitStore>((set, get) => ({
     }
   },
 
+  async fetchIdeaShelves() {
+    try {
+      const result = (await bridge.request(
+        "getIdeaShelves",
+      )) as IdeaShelfEntry[];
+      if (Array.isArray(result)) {
+        set({ ideaShelves: result });
+      }
+    } catch (err) {
+      console.error("fetchIdeaShelves failed:", err);
+    }
+  },
+
+  async ideaShelveChanges(message?: string, filePaths?: string[]) {
+    try {
+      set({ loading: true });
+      await bridge.request("ideaShelveChanges", { message, filePaths });
+      await get().fetchChanges();
+      await get().fetchIdeaShelves();
+    } catch (err) {
+      console.error("ideaShelveChanges failed:", err);
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  async ideaUnshelveChanges(shelfName: string, drop = true) {
+    try {
+      set({ loading: true });
+      await bridge.request("ideaUnshelveChanges", { shelfName, drop });
+      await get().fetchChanges();
+      await get().fetchIdeaShelves();
+    } catch (err) {
+      console.error("ideaUnshelveChanges failed:", err);
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  async deleteIdeaShelf(shelfName: string) {
+    try {
+      await bridge.request("deleteIdeaShelf", { shelfName });
+      await get().fetchIdeaShelves();
+    } catch (err) {
+      console.error("deleteIdeaShelf failed:", err);
+    }
+  },
+
   setActiveTab(tab: TabType) {
     set({ activeTab: tab });
-    if (tab === "shelf") {
+    if (tab === "stash") {
       get().fetchShelves();
+    } else if (tab === "shelf") {
+      get().fetchIdeaShelves();
     }
   },
 
@@ -339,7 +405,11 @@ export const useCommitStore = create<CommitStore>((set, get) => ({
   },
 
   async refresh() {
-    await Promise.all([get().fetchChanges(), get().fetchShelves()]);
+    await Promise.all([
+      get().fetchChanges(),
+      get().fetchShelves(),
+      get().fetchIdeaShelves(),
+    ]);
   },
 }));
 
