@@ -498,6 +498,11 @@ function DirNodeView({
                 style={{ paddingLeft: `${12 + depth * 16}px` }}
                 onClick={() => toggleDir(child.fullPath)}
               >
+                <span
+                  className={`commit-group-chevron ${isCollapsed ? "collapsed" : ""}`}
+                >
+                  <ChevronIcon />
+                </span>
                 <input
                   type="checkbox"
                   className="commit-dir-checkbox"
@@ -515,11 +520,6 @@ function DirNodeView({
                   }}
                   onClick={(e) => e.stopPropagation()}
                 />
-                <span
-                  className={`commit-group-chevron ${isCollapsed ? "collapsed" : ""}`}
-                >
-                  <ChevronIcon />
-                </span>
                 <FolderIcon />
                 <span className="commit-dir-name">{child.name}</span>
                 <span className="commit-dir-count">
