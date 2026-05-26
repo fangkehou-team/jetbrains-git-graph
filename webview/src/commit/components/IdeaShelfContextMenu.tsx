@@ -52,6 +52,27 @@ export function IdeaShelfContextMenu({
     onClose();
   }, [entry, ideaUnshelveChanges, onClose]);
 
+  const handleCreatePatch = useCallback(() => {
+    import("../../shared/bridge").then(({ bridge }) => {
+      bridge.request("createPatchFromShelf", { shelfName: entry.name });
+    });
+    onClose();
+  }, [entry, onClose]);
+
+  const handleCopyPatch = useCallback(() => {
+    import("../../shared/bridge").then(({ bridge }) => {
+      bridge.request("copyShelfPatchToClipboard", { shelfName: entry.name });
+    });
+    onClose();
+  }, [entry, onClose]);
+
+  const handleImportPatches = useCallback(() => {
+    import("../../shared/bridge").then(({ bridge }) => {
+      bridge.request("importPatches");
+    });
+    onClose();
+  }, [onClose]);
+
   const handleDelete = useCallback(() => {
     deleteIdeaShelf(entry.name);
     onClose();
@@ -75,7 +96,36 @@ export function IdeaShelfContextMenu({
         onClick={handleApply}
       >
         <ApplyIcon />
-        <span>Restore (keep shelf)</span>
+        <span>Restore</span>
+      </button>
+
+      <div className="commit-context-menu-separator" />
+
+      <button
+        type="button"
+        className="commit-context-menu-item"
+        onClick={handleCreatePatch}
+      >
+        <PatchIcon />
+        <span>Create Patch...</span>
+      </button>
+
+      <button
+        type="button"
+        className="commit-context-menu-item"
+        onClick={handleCopyPatch}
+      >
+        <CopyIcon />
+        <span>Copy as Patch to Clipboard</span>
+      </button>
+
+      <button
+        type="button"
+        className="commit-context-menu-item"
+        onClick={handleImportPatches}
+      >
+        <ImportIcon />
+        <span>Import Patches...</span>
       </button>
 
       <div className="commit-context-menu-separator" />
@@ -149,6 +199,85 @@ function DeleteIcon() {
         clipRule="evenodd"
         d="M7 2H9C9.55228 2 10 2.44772 10 3H6C6 2.44772 6.44772 2 7 2ZM5 3C5 1.89543 5.89543 1 7 1H9C10.1046 1 11 1.89543 11 3H13C13.5523 3 14 3.44772 14 4V5V6H13V13C13 14.1046 12.1046 15 11 15H5C3.89543 15 3 14.1046 3 13V6H2V5V4C2 3.44772 2.44772 3 3 3H5ZM11 4H10H6H5H3V5H4H12H13V4H11ZM4 6H12V13C12 13.5523 11.5523 14 11 14H5C4.44772 14 4 13.5523 4 13V6ZM6.5 7C6.22386 7 6 7.22386 6 7.5V11.5C6 11.7761 6.22386 12 6.5 12C6.77614 12 7 11.7761 7 11.5V7.5C7 7.22386 6.77614 7 6.5 7ZM9 7.5C9 7.22386 9.22386 7 9.5 7C9.77614 7 10 7.22386 10 7.5V11.5C10 11.7761 9.77614 12 9.5 12C9.22386 12 9 11.7761 9 11.5V7.5Z"
         fill="currentColor"
+      />
+    </svg>
+  );
+}
+
+function PatchIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+      className="commit-context-menu-icon"
+    >
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M7.99998 1C7.72383 1 7.49998 1.22386 7.49998 1.5V5.5H3.5C3.22386 5.5 3 5.72386 3 6C3 6.27614 3.22386 6.5 3.5 6.5H7.49998V10.5C7.49998 10.7761 7.72383 11 7.99998 11C8.27612 11 8.49998 10.7761 8.49998 10.5V6.5H12.5C12.7761 6.5 13 6.27614 13 6C13 5.72386 12.7761 5.5 12.5 5.5H8.49998V1.5C8.49998 1.22386 8.27612 1 7.99998 1Z"
+        fill="currentColor"
+      />
+      <rect
+        x="13"
+        y="13"
+        width="1"
+        height="10"
+        rx="0.5"
+        transform="rotate(90 13 13)"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
+function CopyIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+      className="commit-context-menu-icon"
+    >
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M4 4H1V15H11V12H4V4Z"
+        fill="currentColor"
+        fillOpacity="0.2"
+      />
+      <path d="M5 1H15V11H5V1Z" stroke="currentColor" strokeLinejoin="round" />
+      <path
+        d="M1 4.5V15H11.5"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function ImportIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+      className="commit-context-menu-icon"
+    >
+      <path
+        d="M8 2V10M8 10L5 7M8 10L11 7"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M2 12V13.5C2 14.0523 2.44772 14.5 3 14.5H13C13.5523 14.5 14 14.0523 14 13.5V12"
+        stroke="currentColor"
+        strokeLinecap="round"
       />
     </svg>
   );

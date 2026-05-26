@@ -986,6 +986,28 @@ export class GitService {
       .substring(0, 100);
   }
 
+  async importPatchAsShelf(name: string, patchContent: string): Promise<void> {
+    const shelfDir = path.join(this.cwd, ".idea", "shelf");
+    await fs.mkdir(shelfDir, { recursive: true });
+
+    const sanitized = this.sanitizeShelfName(name || "Imported");
+    const shelfName = await this.getUniqueShelfName(shelfDir, sanitized);
+
+    // Create shelf directory and write patch
+    const entryDir = path.join(shelfDir, shelfName);
+    await fs.mkdir(entryDir, { recursive: true });
+    await fs.writeFile(
+      path.join(entryDir, "shelved.patch"),
+      patchContent,
+      "utf-8",
+    );
+
+    // Write XML metadata
+    const now = Date.now();
+    const xml = `<changelist name="${shelfName}" date="${now}" recycled="false">\n  <option name="PATH" value="$PROJECT_DIR$/.idea/shelf/${shelfName}/shelved.patch" />\n  <option name="DESCRIPTION" value="${shelfName}" />\n</changelist>\n`;
+    await fs.writeFile(path.join(shelfDir, `${shelfName}.xml`), xml, "utf-8");
+  }
+
   private async getUniqueShelfName(
     shelfDir: string,
     baseName: string,

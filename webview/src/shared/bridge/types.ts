@@ -71,7 +71,10 @@ export type CommandType =
   | "ideaShelveChanges"
   | "ideaUnshelveChanges"
   | "deleteIdeaShelf"
-  | "showIdeaShelfFileDiff";
+  | "showIdeaShelfFileDiff"
+  | "createPatchFromShelf"
+  | "copyShelfPatchToClipboard"
+  | "importPatches";
 
 export interface Bridge {
   request(

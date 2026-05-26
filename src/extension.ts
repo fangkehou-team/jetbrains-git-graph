@@ -835,6 +835,93 @@ export function activate(context: vscode.ExtensionContext) {
     return { success: true };
   });
 
+  messageRouter.handle("createPatchFromShelf", async (params) => {
+    if (!gitService || !workspaceRoot) return NOT_GIT_REPO;
+    const shelfName = params.shelfName as string;
+    const patchFile = `${workspaceRoot}/.idea/shelf/${shelfName}/shelved.patch`;
+
+    // Ask user where to save the patch
+    const saveUri = await vscode.window.showSaveDialog({
+      defaultUri: vscode.Uri.file(`${workspaceRoot}/${shelfName}.patch`),
+      filters: { "Patch files": ["patch", "diff"], "All files": ["*"] },
+      title: "Save Patch File",
+    });
+
+    if (!saveUri) return { success: false };
+
+    try {
+      const patchContent = await import("node:fs/promises").then((fs) =>
+        fs.readFile(patchFile, "utf-8"),
+      );
+      await import("node:fs/promises").then((fs) =>
+        fs.writeFile(saveUri.fsPath, patchContent, "utf-8"),
+      );
+      void vscode.window.showInformationMessage(
+        `Patch saved to ${saveUri.fsPath}`,
+      );
+      return { success: true };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      void vscode.window.showErrorMessage(`Failed to create patch: ${msg}`);
+      return { success: false };
+    }
+  });
+
+  messageRouter.handle("copyShelfPatchToClipboard", async (params) => {
+    if (!gitService || !workspaceRoot) return NOT_GIT_REPO;
+    const shelfName = params.shelfName as string;
+    const patchFile = `${workspaceRoot}/.idea/shelf/${shelfName}/shelved.patch`;
+
+    try {
+      const patchContent = await import("node:fs/promises").then((fs) =>
+        fs.readFile(patchFile, "utf-8"),
+      );
+      await vscode.env.clipboard.writeText(patchContent);
+      void vscode.window.showInformationMessage("Patch copied to clipboard");
+      return { success: true };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      void vscode.window.showErrorMessage(`Failed to copy patch: ${msg}`);
+      return { success: false };
+    }
+  });
+
+  messageRouter.handle("importPatches", async () => {
+    if (!gitService || !workspaceRoot) return NOT_GIT_REPO;
+
+    // Ask user to select patch files
+    const fileUris = await vscode.window.showOpenDialog({
+      canSelectMany: true,
+      filters: { "Patch files": ["patch", "diff"], "All files": ["*"] },
+      title: "Import Patch Files",
+    });
+
+    if (!fileUris || fileUris.length === 0) return { success: false };
+
+    try {
+      for (const uri of fileUris) {
+        const patchContent = await import("node:fs/promises").then((fs) =>
+          fs.readFile(uri.fsPath, "utf-8"),
+        );
+
+        // Create a shelf entry from the imported patch
+        const fileName = uri.fsPath.split("/").pop() ?? "Imported";
+        const shelfName = fileName.replace(/\.(patch|diff)$/, "");
+        await gitService.importPatchAsShelf(shelfName, patchContent);
+      }
+
+      messageRouter.broadcastEvent("commitStateChanged", {});
+      void vscode.window.showInformationMessage(
+        `Imported ${fileUris.length} patch${fileUris.length > 1 ? "es" : ""}`,
+      );
+      return { success: true };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      void vscode.window.showErrorMessage(`Failed to import patches: ${msg}`);
+      return { success: false };
+    }
+  });
+
   // 7. GitWatcher (only if GitService is available)
   if (gitService && workspaceRoot) {
     const watcher = new GitWatcher(

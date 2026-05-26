@@ -74,7 +74,10 @@ export type CommandType =
   | "ideaShelveChanges"
   | "ideaUnshelveChanges"
   | "deleteIdeaShelf"
-  | "showIdeaShelfFileDiff";
+  | "showIdeaShelfFileDiff"
+  | "createPatchFromShelf"
+  | "copyShelfPatchToClipboard"
+  | "importPatches";
 
 export type EventType =
   | "gitStateChanged"
