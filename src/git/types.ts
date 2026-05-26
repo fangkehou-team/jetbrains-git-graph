@@ -124,3 +124,26 @@ export interface ConflictRegion {
   mergedStart: number;
   mergedEnd: number;
 }
+
+/** Working tree file change for the commit panel */
+export interface WorkingTreeFile {
+  path: string;
+  oldPath?: string;
+  status:
+    | "added"
+    | "modified"
+    | "deleted"
+    | "renamed"
+    | "untracked"
+    | "conflicted";
+  staged: boolean;
+}
+
+/** Shelf entry (git stash based) */
+export interface ShelveEntry {
+  id: string; // stash@{n}
+  message: string;
+  date: string;
+  branch: string;
+  files: string[];
+}

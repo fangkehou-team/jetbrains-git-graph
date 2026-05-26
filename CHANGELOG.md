@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.4.0] - 2026-05-26
+
+### Added
+- **IDEA-style Commit Panel** — new sidebar panel (Activity Bar) replicating IntelliJ's commit workflow
+  - File changes grouped by Changes / Staged / Unversioned Files
+  - Checkbox-based file selection for partial commits
+  - Commit message input with Ctrl+Enter shortcut
+  - Commit / Commit and Push buttons
+  - Amend commit support (auto-loads previous message)
+  - Right-click context menu on files: Show Diff, Jump to Source, Add to VCS/Unstage, Rollback, Shelve Changes
+  - Cmd+Click multi-select for batch operations
+  - Group by Directory toggle with tree view (collapsible folders)
+  - View Options menu (eye icon): Group By Directory, Show Unversioned Files
+  - Expand All / Collapse All toolbar buttons
+- **Shelf (Stash) Tab** — full shelf management
+  - Expandable shelf entries showing individual file changes
+  - Right-click context menu on shelf entries: Unshelve, Restore, Delete
+  - Right-click context menu on shelf files: Show Diff, Unshelve This File, Jump to Source, Copy Path
+  - Single-file shelve support (only stashes the selected file, not all changes)
+- All icons sourced from [JetBrains IntelliJ Icons](https://intellij-icons.jetbrains.design/) (Apache 2.0)
+- Unified design language: 6px border-radius, consistent hover colors (#ededed), IDEA blue focus (#3574f0)
+- File status colors matching IDEA: green (added), blue (modified), red (unversioned), gray (deleted)
+- Unknown file types use IDEA-style three-line text icon
+
+### Changed
+- Global button/input border-radius unified to 6px via `--radius` CSS variable
+- Tab hover/active styles match IDEA (rounded, light blue active state #dfe7f5)
+- Context menu hover color matches existing branch panel (#e8f0fe)
+
 ## [0.3.5] - 2025-05-25
 
 ### Added

@@ -3,7 +3,7 @@ import * as vscode from "vscode";
 export function getWebviewHtml(
   webview: vscode.Webview,
   extensionUri: vscode.Uri,
-  mode: "panel" | "merge" | "conflicts",
+  mode: "panel" | "merge" | "conflicts" | "commit",
   extra?: Record<string, string>,
 ): string {
   const distUri = vscode.Uri.joinPath(extensionUri, "dist", "webview");

@@ -1,0 +1,351 @@
+import { create } from "zustand";
+import { bridge } from "../bridge";
+
+export interface WorkingTreeFile {
+  path: string;
+  oldPath?: string;
+  status:
+    | "added"
+    | "modified"
+    | "deleted"
+    | "renamed"
+    | "untracked"
+    | "conflicted";
+  staged: boolean;
+}
+
+export interface ShelveEntry {
+  id: string;
+  message: string;
+  date: string;
+  branch: string;
+  files: string[];
+}
+
+type TabType = "commit" | "shelf" | "stash";
+
+interface CommitStore {
+  // File changes
+  changes: WorkingTreeFile[];
+  selectedFiles: Set<string>;
+  /** Files highlighted via click/Cmd+click (for context menu operations) */
+  highlightedFiles: Set<string>;
+
+  // Commit state
+  commitMessage: string;
+  amend: boolean;
+
+  // Shelf
+  shelves: ShelveEntry[];
+
+  // UI state
+  activeTab: TabType;
+  loading: boolean;
+  expandedGroups: Set<string>;
+  groupByDirectory: boolean;
+  showUnversioned: boolean;
+
+  // Actions
+  fetchChanges: () => Promise<void>;
+  fetchShelves: () => Promise<void>;
+  setCommitMessage: (msg: string) => void;
+  setAmend: (amend: boolean) => void;
+  toggleFileSelection: (filePath: string) => void;
+  selectAllFiles: () => void;
+  deselectAllFiles: () => void;
+  highlightFile: (key: string, mode: "single" | "toggle") => void;
+  stageFile: (filePath: string) => Promise<void>;
+  unstageFile: (filePath: string) => Promise<void>;
+  stageAll: () => Promise<void>;
+  unstageAll: () => Promise<void>;
+  commit: () => Promise<boolean>;
+  commitAndPush: () => Promise<boolean>;
+  rollbackFile: (filePath: string) => Promise<void>;
+  showDiff: (filePath: string, staged?: boolean) => Promise<void>;
+  shelveChanges: (message?: string, filePaths?: string[]) => Promise<void>;
+  unshelveChanges: (stashId: string, drop?: boolean) => Promise<void>;
+  deleteShelve: (stashId: string) => Promise<void>;
+  setActiveTab: (tab: TabType) => void;
+  toggleGroup: (group: string) => void;
+  toggleGroupByDirectory: () => void;
+  toggleShowUnversioned: () => void;
+  refresh: () => Promise<void>;
+}
+
+export const useCommitStore = create<CommitStore>((set, get) => ({
+  changes: [],
+  selectedFiles: new Set<string>(),
+  highlightedFiles: new Set<string>(),
+  commitMessage: "",
+  amend: false,
+  shelves: [],
+  activeTab: "commit",
+  loading: false,
+  expandedGroups: new Set(["changes", "unversioned", "staged"]),
+  groupByDirectory: false,
+  showUnversioned: true,
+
+  async fetchChanges() {
+    try {
+      const result = (await bridge.request(
+        "getWorkingTreeChanges",
+      )) as WorkingTreeFile[];
+      if (Array.isArray(result)) {
+        // Auto-select all files by default
+        const allPaths = new Set(result.map((f) => `${f.path}:${f.staged}`));
+        set({ changes: result, selectedFiles: allPaths });
+      }
+    } catch (err) {
+      console.error("fetchChanges failed:", err);
+    }
+  },
+
+  async fetchShelves() {
+    try {
+      const result = (await bridge.request("getShelves")) as ShelveEntry[];
+      if (Array.isArray(result)) {
+        set({ shelves: result });
+      }
+    } catch (err) {
+      console.error("fetchShelves failed:", err);
+    }
+  },
+
+  setCommitMessage(msg: string) {
+    set({ commitMessage: msg });
+  },
+
+  setAmend(amend: boolean) {
+    set({ amend });
+    if (amend) {
+      // Load last commit message
+      void (async () => {
+        try {
+          const result = (await bridge.request("getAmendMessage")) as {
+            message: string;
+          };
+          if (result?.message) {
+            set({ commitMessage: result.message });
+          }
+        } catch {
+          // ignore
+        }
+      })();
+    }
+  },
+
+  toggleFileSelection(key: string) {
+    const { selectedFiles } = get();
+    const next = new Set(selectedFiles);
+    if (next.has(key)) {
+      next.delete(key);
+    } else {
+      next.add(key);
+    }
+    set({ selectedFiles: next });
+  },
+
+  selectAllFiles() {
+    const { changes } = get();
+    const allPaths = new Set(changes.map((f) => `${f.path}:${f.staged}`));
+    set({ selectedFiles: allPaths });
+  },
+
+  deselectAllFiles() {
+    set({ selectedFiles: new Set() });
+  },
+
+  highlightFile(key: string, mode: "single" | "toggle") {
+    const { highlightedFiles } = get();
+    if (mode === "single") {
+      set({ highlightedFiles: new Set([key]) });
+    } else {
+      // toggle (Cmd+click)
+      const next = new Set(highlightedFiles);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      set({ highlightedFiles: next });
+    }
+  },
+
+  async stageFile(filePath: string) {
+    try {
+      await bridge.request("stageFile", { filePath });
+      await get().fetchChanges();
+    } catch (err) {
+      console.error("stageFile failed:", err);
+    }
+  },
+
+  async unstageFile(filePath: string) {
+    try {
+      await bridge.request("unstageFile", { filePath });
+      await get().fetchChanges();
+    } catch (err) {
+      console.error("unstageFile failed:", err);
+    }
+  },
+
+  async stageAll() {
+    try {
+      await bridge.request("stageAll");
+      await get().fetchChanges();
+    } catch (err) {
+      console.error("stageAll failed:", err);
+    }
+  },
+
+  async unstageAll() {
+    try {
+      await bridge.request("unstageAll");
+      await get().fetchChanges();
+    } catch (err) {
+      console.error("unstageAll failed:", err);
+    }
+  },
+
+  async commit() {
+    const { commitMessage, amend, changes, selectedFiles } = get();
+    if (!commitMessage.trim()) return false;
+
+    // Get selected file paths (only unstaged ones need to be staged)
+    const filesToStage = changes
+      .filter((f) => !f.staged && selectedFiles.has(`${f.path}:${f.staged}`))
+      .map((f) => f.path);
+
+    try {
+      set({ loading: true });
+      await bridge.request("commitChanges", {
+        message: commitMessage,
+        amend,
+        filePaths: filesToStage,
+      });
+      set({ commitMessage: "", amend: false });
+      await get().fetchChanges();
+      return true;
+    } catch (err) {
+      console.error("commit failed:", err);
+      return false;
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  async commitAndPush() {
+    const { commitMessage, amend, changes, selectedFiles } = get();
+    if (!commitMessage.trim()) return false;
+
+    const filesToStage = changes
+      .filter((f) => !f.staged && selectedFiles.has(`${f.path}:${f.staged}`))
+      .map((f) => f.path);
+
+    try {
+      set({ loading: true });
+      await bridge.request("commitAndPush", {
+        message: commitMessage,
+        amend,
+        filePaths: filesToStage,
+      });
+      set({ commitMessage: "", amend: false });
+      await get().fetchChanges();
+      return true;
+    } catch (err) {
+      console.error("commitAndPush failed:", err);
+      return false;
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  async rollbackFile(filePath: string) {
+    try {
+      await bridge.request("rollbackFile", { filePath });
+      await get().fetchChanges();
+    } catch (err) {
+      console.error("rollbackFile failed:", err);
+    }
+  },
+
+  async showDiff(filePath: string, staged?: boolean) {
+    try {
+      await bridge.request("showDiffForWorkingFile", { filePath, staged });
+    } catch (err) {
+      console.error("showDiff failed:", err);
+    }
+  },
+
+  async shelveChanges(message?: string, filePaths?: string[]) {
+    try {
+      set({ loading: true });
+      await bridge.request("shelveChanges", { message, filePaths });
+      await get().fetchChanges();
+      await get().fetchShelves();
+    } catch (err) {
+      console.error("shelveChanges failed:", err);
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  async unshelveChanges(stashId: string, drop = true) {
+    try {
+      set({ loading: true });
+      await bridge.request("unshelveChanges", { stashId, drop });
+      await get().fetchChanges();
+      await get().fetchShelves();
+    } catch (err) {
+      console.error("unshelveChanges failed:", err);
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  async deleteShelve(stashId: string) {
+    try {
+      await bridge.request("deleteShelve", { stashId });
+      await get().fetchShelves();
+    } catch (err) {
+      console.error("deleteShelve failed:", err);
+    }
+  },
+
+  setActiveTab(tab: TabType) {
+    set({ activeTab: tab });
+    if (tab === "shelf") {
+      get().fetchShelves();
+    }
+  },
+
+  toggleGroup(group: string) {
+    const { expandedGroups } = get();
+    const next = new Set(expandedGroups);
+    if (next.has(group)) {
+      next.delete(group);
+    } else {
+      next.add(group);
+    }
+    set({ expandedGroups: next });
+  },
+
+  toggleGroupByDirectory() {
+    set({ groupByDirectory: !get().groupByDirectory });
+  },
+
+  toggleShowUnversioned() {
+    set({ showUnversioned: !get().showUnversioned });
+  },
+
+  async refresh() {
+    await Promise.all([get().fetchChanges(), get().fetchShelves()]);
+  },
+}));
+
+// Listen for commit state changes
+bridge.onEvent((event) => {
+  if (event === "commitStateChanged" || event === "gitStateChanged") {
+    useCommitStore.getState().fetchChanges();
+  }
+});

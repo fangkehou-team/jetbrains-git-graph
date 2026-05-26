@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { GitService } from "./git/gitService";
 import type { DiffFile, LaneSnapshot } from "./git/types";
 import { MessageRouter } from "./messages/messageRouter";
+import { CommitViewProvider } from "./views/commitViewProvider";
 import { ConflictsManager } from "./views/conflictsManager";
 import { DiffEditorManager } from "./views/diffEditorManager";
 import {
@@ -38,6 +39,19 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.window.registerWebviewViewProvider(
       GitLogViewProvider.viewType,
       logProvider,
+      { webviewOptions: { retainContextWhenHidden: true } },
+    ),
+  );
+
+  // 2b. CommitViewProvider (always registered)
+  const commitProvider = new CommitViewProvider(
+    context.extensionUri,
+    messageRouter,
+  );
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(
+      CommitViewProvider.viewType,
+      commitProvider,
       { webviewOptions: { retainContextWhenHidden: true } },
     ),
   );
@@ -292,6 +306,7 @@ export function activate(context: vscode.ExtensionContext) {
   messageRouter.handle("stageFile", async (params) => {
     if (!gitService) return NOT_GIT_REPO;
     await gitService.stageFile(params.filePath as string);
+    messageRouter.broadcastEvent("commitStateChanged", {});
     return { success: true };
   });
 
@@ -329,7 +344,12 @@ export function activate(context: vscode.ExtensionContext) {
     const absPath = workspaceRoot
       ? vscode.Uri.joinPath(vscode.Uri.file(workspaceRoot), filePath)
       : vscode.Uri.file(filePath);
-    await vscode.window.showTextDocument(absPath);
+    try {
+      await vscode.commands.executeCommand("vscode.open", absPath);
+    } catch {
+      // Fallback for files that can't be opened in any editor
+      await vscode.env.openExternal(absPath);
+    }
     return { success: true };
   });
 
@@ -548,6 +568,214 @@ export function activate(context: vscode.ExtensionContext) {
     const uri = vscode.Uri.parse(`${GIT_BRAINS_SCHEME}:${filePath}?ref=${ref}`);
     await vscode.window.showTextDocument(uri, { preview: true });
     return { success: true };
+  });
+
+  // ─── Commit Panel Handlers ───────────────────────────────────────
+
+  messageRouter.handle("getWorkingTreeChanges", async () => {
+    if (!gitService) return NOT_GIT_REPO;
+    return gitService.getWorkingTreeChanges();
+  });
+
+  messageRouter.handle("unstageFile", async (params) => {
+    if (!gitService) return NOT_GIT_REPO;
+    await gitService.unstageFile(params.filePath as string);
+    messageRouter.broadcastEvent("commitStateChanged", {});
+    return { success: true };
+  });
+
+  messageRouter.handle("stageAll", async () => {
+    if (!gitService) return NOT_GIT_REPO;
+    await gitService.stageAll();
+    messageRouter.broadcastEvent("commitStateChanged", {});
+    return { success: true };
+  });
+
+  messageRouter.handle("unstageAll", async () => {
+    if (!gitService) return NOT_GIT_REPO;
+    await gitService.unstageAll();
+    messageRouter.broadcastEvent("commitStateChanged", {});
+    return { success: true };
+  });
+
+  messageRouter.handle("commitChanges", async (params) => {
+    if (!gitService) return NOT_GIT_REPO;
+    const message = params.message as string;
+    const amend = params.amend as boolean | undefined;
+    const filePaths = params.filePaths as string[] | undefined;
+
+    // Stage specified files if provided
+    if (filePaths && filePaths.length > 0) {
+      await gitService.stageFiles(filePaths);
+    }
+
+    await gitService.commit(message, amend ?? false);
+    messageRouter.broadcastEvent("commitStateChanged", {});
+    messageRouter.broadcastEvent("gitStateChanged", { scope: "all" });
+    return { success: true };
+  });
+
+  messageRouter.handle("commitAndPush", async (params) => {
+    if (!gitService) return NOT_GIT_REPO;
+    const message = params.message as string;
+    const amend = params.amend as boolean | undefined;
+    const filePaths = params.filePaths as string[] | undefined;
+
+    if (filePaths && filePaths.length > 0) {
+      await gitService.stageFiles(filePaths);
+    }
+
+    return withProgress(messageRouter, async () => {
+      await gitService.commitAndPush(message, amend ?? false);
+      messageRouter.broadcastEvent("commitStateChanged", {});
+      messageRouter.broadcastEvent("gitStateChanged", { scope: "all" });
+      return { success: true };
+    });
+  });
+
+  messageRouter.handle("amendCommit", async (params) => {
+    if (!gitService) return NOT_GIT_REPO;
+    const message = params.message as string;
+    await gitService.commit(message, true);
+    messageRouter.broadcastEvent("commitStateChanged", {});
+    messageRouter.broadcastEvent("gitStateChanged", { scope: "all" });
+    return { success: true };
+  });
+
+  messageRouter.handle("getAmendMessage", async () => {
+    if (!gitService) return NOT_GIT_REPO;
+    const message = await gitService.getLastCommitMessage();
+    return { message };
+  });
+
+  messageRouter.handle("rollbackFile", async (params) => {
+    if (!gitService) return NOT_GIT_REPO;
+    const filePath = params.filePath as string;
+    const choice = await vscode.window.showWarningMessage(
+      `Rollback changes to "${filePath}"? This cannot be undone.`,
+      { modal: true },
+      "Rollback",
+    );
+    if (choice !== "Rollback") return { success: false };
+    await gitService.rollbackFile(filePath);
+    messageRouter.broadcastEvent("commitStateChanged", {});
+    return { success: true };
+  });
+
+  messageRouter.handle("showDiffForWorkingFile", async (params) => {
+    if (!gitService || !workspaceRoot) return NOT_GIT_REPO;
+    const filePath = params.filePath as string;
+    const staged = params.staged as boolean | undefined;
+
+    const rightUri = vscode.Uri.joinPath(
+      vscode.Uri.file(workspaceRoot),
+      filePath,
+    );
+
+    if (staged) {
+      // Show diff between HEAD and staged
+      const leftUri = vscode.Uri.parse(
+        `${GIT_BRAINS_SCHEME}:${filePath}?ref=HEAD`,
+      );
+      await vscode.commands.executeCommand(
+        "vscode.diff",
+        leftUri,
+        rightUri,
+        `${filePath} (HEAD ↔ Staged)`,
+      );
+    } else {
+      // Show diff between HEAD and working tree
+      const leftUri = vscode.Uri.parse(
+        `${GIT_BRAINS_SCHEME}:${filePath}?ref=HEAD`,
+      );
+      await vscode.commands.executeCommand(
+        "vscode.diff",
+        leftUri,
+        rightUri,
+        `${filePath} (HEAD ↔ Working Tree)`,
+      );
+    }
+    return { success: true };
+  });
+
+  // ─── Shelf Handlers ───────────────────────────────────────────────
+
+  messageRouter.handle("getShelves", async () => {
+    if (!gitService) return NOT_GIT_REPO;
+    return gitService.getShelves();
+  });
+
+  messageRouter.handle("shelveChanges", async (params) => {
+    if (!gitService) return NOT_GIT_REPO;
+    const message = params.message as string | undefined;
+    const filePaths = params.filePaths as string[] | undefined;
+    await gitService.shelveChanges(message ?? "", filePaths);
+    messageRouter.broadcastEvent("commitStateChanged", {});
+    return { success: true };
+  });
+
+  messageRouter.handle("unshelveChanges", async (params) => {
+    if (!gitService) return NOT_GIT_REPO;
+    const stashId = params.stashId as string;
+    const drop = (params.drop as boolean) ?? true;
+    await gitService.unshelveChanges(stashId, drop);
+    messageRouter.broadcastEvent("commitStateChanged", {});
+    messageRouter.broadcastEvent("gitStateChanged", { scope: "all" });
+    return { success: true };
+  });
+
+  messageRouter.handle("deleteShelve", async (params) => {
+    if (!gitService) return NOT_GIT_REPO;
+    const stashId = params.stashId as string;
+    const choice = await vscode.window.showWarningMessage(
+      `Delete shelved changes "${stashId}"? This cannot be undone.`,
+      { modal: true },
+      "Delete",
+    );
+    if (choice !== "Delete") return { success: false };
+    await gitService.deleteShelve(stashId);
+    messageRouter.broadcastEvent("commitStateChanged", {});
+    return { success: true };
+  });
+
+  messageRouter.handle("showShelfFileDiff", async (params) => {
+    if (!gitService || !workspaceRoot) return NOT_GIT_REPO;
+    const stashId = params.stashId as string;
+    const filePath = params.filePath as string;
+
+    // Show diff between the stash version and the parent (before stash)
+    const stashUri = vscode.Uri.parse(
+      `${GIT_BRAINS_SCHEME}:${filePath}?ref=${stashId}`,
+    );
+    const parentUri = vscode.Uri.parse(
+      `${GIT_BRAINS_SCHEME}:${filePath}?ref=${stashId}^`,
+    );
+    await vscode.commands.executeCommand(
+      "vscode.diff",
+      parentUri,
+      stashUri,
+      `${filePath} (Shelved: ${stashId})`,
+    );
+    return { success: true };
+  });
+
+  messageRouter.handle("unshelveFile", async (params) => {
+    if (!gitService || !workspaceRoot) return NOT_GIT_REPO;
+    const stashId = params.stashId as string;
+    const filePath = params.filePath as string;
+
+    // Checkout the single file from the stash into the working tree
+    try {
+      await gitService.checkoutFileFromCommit(stashId, filePath);
+      messageRouter.broadcastEvent("commitStateChanged", {});
+      return { success: true };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      void vscode.window.showErrorMessage(
+        `Failed to unshelve file: ${message}`,
+      );
+      return { success: false };
+    }
   });
 
   // 7. GitWatcher (only if GitService is available)

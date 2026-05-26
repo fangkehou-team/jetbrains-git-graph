@@ -41,6 +41,9 @@ export type CommandType =
   | "getFileVersions"
   | "saveMergedContent"
   | "stageFile"
+  | "unstageFile"
+  | "stageAll"
+  | "unstageAll"
   | "acceptOurs"
   | "acceptTheirs"
   | "confirmCancelMerge"
@@ -55,7 +58,18 @@ export type CommandType =
   | "checkoutAndRebase"
   | "pushBranch"
   | "pullBranch"
-  | "fetchBranch";
+  | "fetchBranch"
+  | "commitChanges"
+  | "commitAndPush"
+  | "amendCommit"
+  | "rollbackFile"
+  | "getWorkingTreeChanges"
+  | "getShelves"
+  | "shelveChanges"
+  | "unshelveChanges"
+  | "deleteShelve"
+  | "showDiffForWorkingFile"
+  | "getAmendMessage";
 
 export type EventType =
   | "gitStateChanged"
@@ -63,7 +77,8 @@ export type EventType =
   | "themeChanged"
   | "showFileHistory"
   | "operationStart"
-  | "operationEnd";
+  | "operationEnd"
+  | "commitStateChanged";
 
 export enum ErrorCode {
   GIT_NOT_FOUND = "GIT_NOT_FOUND",

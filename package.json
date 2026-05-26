@@ -3,7 +3,7 @@
   "displayName": "IntelliJ Git Graph - IDEA Style Branch & Merge",
   "publisher": "autemj",
   "description": "IntelliJ IDEA style Git graph visualization with branch context menu, cherry-pick, rebase, merge, reset, and 3-way merge editor. JetBrains-like Git experience for VS Code.",
-  "version": "0.3.5",
+  "version": "0.4.0",
   "license": "MIT",
   "icon": "images/icon.png",
   "repository": {
@@ -42,6 +42,13 @@
           "title": "JetGit",
           "icon": "$(git-branch)"
         }
+      ],
+      "activitybar": [
+        {
+          "id": "git-brains-commit",
+          "title": "Commit",
+          "icon": "$(git-commit)"
+        }
       ]
     },
     "views": {
@@ -50,6 +57,13 @@
           "type": "webview",
           "id": "git-brains.gitLog",
           "name": "Git Log"
+        }
+      ],
+      "git-brains-commit": [
+        {
+          "type": "webview",
+          "id": "git-brains.commitPanel",
+          "name": "Commit"
         }
       ]
     },
@@ -82,6 +96,36 @@
         "title": "Show File History",
         "icon": "$(history)",
         "category": "IDEA Git"
+      },
+      {
+        "command": "git-brains.commitPanel.refresh",
+        "title": "Refresh Changes",
+        "icon": "$(refresh)",
+        "category": "JetGit"
+      },
+      {
+        "command": "git-brains.commitPanel.commit",
+        "title": "Commit",
+        "icon": "$(check)",
+        "category": "JetGit"
+      },
+      {
+        "command": "git-brains.commitPanel.commitAndPush",
+        "title": "Commit and Push",
+        "icon": "$(cloud-upload)",
+        "category": "JetGit"
+      },
+      {
+        "command": "git-brains.commitPanel.shelve",
+        "title": "Shelve Changes",
+        "icon": "$(archive)",
+        "category": "JetGit"
+      },
+      {
+        "command": "git-brains.commitPanel.unshelve",
+        "title": "Unshelve Changes",
+        "icon": "$(package)",
+        "category": "JetGit"
       }
     ],
     "menus": {

@@ -536,6 +536,258 @@ export class GitService {
     this.invalidateCache();
   }
 
+  // ─── Commit Panel Operations ───────────────────────────────────────
+
+  async getWorkingTreeChanges(): Promise<import("./types").WorkingTreeFile[]> {
+    const output = await this.execGit(["status", "--porcelain=v1"]);
+    const files: import("./types").WorkingTreeFile[] = [];
+
+    for (const line of output.split("\n")) {
+      if (line.length < 4) continue;
+      const indexStatus = line[0];
+      const workTreeStatus = line[1];
+      const rest = line.substring(3);
+
+      // Handle renames
+      const arrowIdx = rest.indexOf(" -> ");
+      const filePath = arrowIdx !== -1 ? rest.substring(arrowIdx + 4) : rest;
+      const oldPath = arrowIdx !== -1 ? rest.substring(0, arrowIdx) : undefined;
+
+      // Determine if file is staged
+      const staged =
+        indexStatus !== " " && indexStatus !== "?" && indexStatus !== "!";
+
+      // Determine status
+      let status: import("./types").WorkingTreeFile["status"];
+      if (indexStatus === "?" && workTreeStatus === "?") {
+        status = "untracked";
+      } else if (
+        indexStatus === "U" ||
+        workTreeStatus === "U" ||
+        (indexStatus === "A" && workTreeStatus === "A") ||
+        (indexStatus === "D" && workTreeStatus === "D")
+      ) {
+        status = "conflicted";
+      } else if (indexStatus === "A" || workTreeStatus === "A") {
+        status = "added";
+      } else if (indexStatus === "D" || workTreeStatus === "D") {
+        status = "deleted";
+      } else if (indexStatus === "R" || workTreeStatus === "R") {
+        status = "renamed";
+      } else {
+        status = "modified";
+      }
+
+      // For files that have both staged and unstaged changes, emit two entries
+      if (
+        staged &&
+        workTreeStatus !== " " &&
+        workTreeStatus !== "?" &&
+        workTreeStatus !== "!"
+      ) {
+        // Staged version
+        files.push({ path: filePath, oldPath, status, staged: true });
+        // Unstaged version
+        files.push({
+          path: filePath,
+          oldPath,
+          status: "modified",
+          staged: false,
+        });
+      } else {
+        files.push({ path: filePath, oldPath, status, staged });
+      }
+    }
+    return files;
+  }
+
+  async stageFiles(filePaths: string[]): Promise<void> {
+    if (filePaths.length === 0) return;
+    await this.execGit(["add", "--", ...filePaths]);
+  }
+
+  async unstageFile(filePath: string): Promise<void> {
+    await this.execGit(["reset", "HEAD", "--", filePath]);
+  }
+
+  async unstageAll(): Promise<void> {
+    await this.execGit(["reset", "HEAD"]);
+  }
+
+  async stageAll(): Promise<void> {
+    await this.execGit(["add", "-A"]);
+  }
+
+  async commit(message: string, amend = false): Promise<void> {
+    const args = ["commit", "-m", message];
+    if (amend) args.push("--amend");
+    await this.execGit(args);
+    this.invalidateCache();
+  }
+
+  async commitAndPush(message: string, amend = false): Promise<void> {
+    await this.commit(message, amend);
+    // Push current branch
+    const branch = await this.getCurrentBranch();
+    if (branch) {
+      const force = amend;
+      await this.push(branch, force);
+    }
+  }
+
+  async getCurrentBranch(): Promise<string | null> {
+    try {
+      const output = await this.execGit(["rev-parse", "--abbrev-ref", "HEAD"]);
+      const branch = output.trim();
+      return branch === "HEAD" ? null : branch;
+    } catch {
+      return null;
+    }
+  }
+
+  async getLastCommitMessage(): Promise<string> {
+    try {
+      const output = await this.execGit(["log", "-1", "--format=%B"]);
+      return output.trim();
+    } catch {
+      return "";
+    }
+  }
+
+  async rollbackFile(filePath: string): Promise<void> {
+    // Check if file is untracked
+    try {
+      await this.execGit(["ls-files", "--error-unmatch", filePath]);
+      // File is tracked, checkout from HEAD
+      await this.execGit(["checkout", "HEAD", "--", filePath]);
+    } catch {
+      // File is untracked, remove it
+      const fullPath = path.join(this.cwd, filePath);
+      await fs.unlink(fullPath);
+    }
+  }
+
+  // ─── Shelf (Stash-based) Operations ───────────────────────────────
+
+  async getShelves(): Promise<import("./types").ShelveEntry[]> {
+    try {
+      const output = await this.execGit([
+        "stash",
+        "list",
+        "--format=%gd%x00%s%x00%aI%x00%D",
+      ]);
+      if (!output.trim()) return [];
+
+      const entries: import("./types").ShelveEntry[] = [];
+      for (const line of output.trim().split("\n")) {
+        if (!line.trim()) continue;
+        const parts = line.split("\x00");
+        const id = parts[0] ?? "";
+        const message = (parts[1] ?? "").replace(/^(WIP on|On) [^:]+:\s*/, "");
+        const date = parts[2] ?? "";
+        const _refs = parts[3] ?? "";
+        // Extract branch from refs or message
+        const branchMatch = (parts[1] ?? "").match(/^(?:WIP on|On) ([^:]+)/);
+        const branch = branchMatch?.[1] ?? "";
+
+        entries.push({ id, message, date, branch, files: [] });
+      }
+
+      // Load files for each stash
+      for (const entry of entries) {
+        try {
+          const filesOutput = await this.execGit([
+            "stash",
+            "show",
+            entry.id,
+            "--name-only",
+          ]);
+          entry.files = filesOutput.trim().split("\n").filter(Boolean);
+        } catch {
+          // ignore
+        }
+      }
+
+      return entries;
+    } catch {
+      return [];
+    }
+  }
+
+  async shelveChanges(message: string, filePaths?: string[]): Promise<void> {
+    if (filePaths && filePaths.length > 0) {
+      // Strategy: to stash only specific files without pulling in other staged files,
+      // we need to temporarily reset the index, stage only our target files, then stash.
+
+      // 1. Save current index state by creating a temporary stash of the index
+      //    We use a different approach: reset index, add targets, stash, restore index.
+
+      // Get current status to know what's staged
+      const statusBefore = await this.execGit(["status", "--porcelain=v1"]);
+      const previouslyStaged: string[] = [];
+      for (const line of statusBefore.split("\n")) {
+        if (line.length < 4) continue;
+        const indexStatus = line[0];
+        if (indexStatus !== " " && indexStatus !== "?" && indexStatus !== "!") {
+          const rest = line.substring(3);
+          const arrowIdx = rest.indexOf(" -> ");
+          const filePath =
+            arrowIdx !== -1 ? rest.substring(arrowIdx + 4) : rest;
+          previouslyStaged.push(filePath);
+        }
+      }
+
+      // 2. Reset the index (unstage everything) without touching working tree
+      try {
+        await this.execGit(["reset", "HEAD"]);
+      } catch {
+        // May fail if there's no HEAD (initial commit) — that's ok
+      }
+
+      // 3. Stage only the target files
+      await this.execGit(["add", "--", ...filePaths]);
+
+      // 4. Stash only the staged files
+      await this.execGit([
+        "stash",
+        "push",
+        "--staged",
+        "-m",
+        message || "Shelved changes",
+      ]);
+
+      // 5. Re-stage previously staged files (that weren't stashed)
+      const remainingToStage = previouslyStaged.filter(
+        (f) => !filePaths.includes(f),
+      );
+      if (remainingToStage.length > 0) {
+        try {
+          await this.execGit(["add", "--", ...remainingToStage]);
+        } catch {
+          // Some files may no longer exist, ignore errors
+        }
+      }
+    } else {
+      // Stash all changes including untracked
+      const args = ["stash", "push", "-m", message || "Shelved changes", "-u"];
+      await this.execGit(args);
+    }
+    this.invalidateCache();
+  }
+
+  async unshelveChanges(stashId: string, drop = true): Promise<void> {
+    if (drop) {
+      await this.execGit(["stash", "pop", stashId]);
+    } else {
+      await this.execGit(["stash", "apply", stashId]);
+    }
+    this.invalidateCache();
+  }
+
+  async deleteShelve(stashId: string): Promise<void> {
+    await this.execGit(["stash", "drop", stashId]);
+  }
+
   invalidateCache(pattern?: string): void {
     this.cache.invalidate(pattern);
   }
