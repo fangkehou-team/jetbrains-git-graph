@@ -104,7 +104,7 @@ export const useCommitStore = create<CommitStore>((set, get) => ({
   activeTab: "commit",
   loading: false,
   expandedGroups: new Set(["changes", "unversioned", "staged"]),
-  groupByDirectory: false,
+  groupByDirectory: true,
   showUnversioned: true,
   collapsedDirs: new Set<string>(),
 
