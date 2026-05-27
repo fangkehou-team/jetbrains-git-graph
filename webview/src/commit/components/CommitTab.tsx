@@ -31,6 +31,13 @@ export function CommitTab() {
     file: WorkingTreeFile;
   } | null>(null);
 
+  const [dirContextMenu, setDirContextMenu] = useState<{
+    x: number;
+    y: number;
+    files: WorkingTreeFile[];
+    dirName: string;
+  } | null>(null);
+
   // Group files: staged (Changes) vs unstaged/untracked (Unversioned Files)
   const { stagedFiles, changedFiles, untrackedFiles } = useMemo(() => {
     const staged: WorkingTreeFile[] = [];
@@ -64,12 +71,27 @@ export function CommitTab() {
   const handleContextMenu = useCallback(
     (e: React.MouseEvent, file: WorkingTreeFile) => {
       setContextMenu({ x: e.clientX, y: e.clientY, file });
+      setDirContextMenu(null);
+    },
+    [],
+  );
+
+  const handleDirContextMenu = useCallback(
+    (e: React.MouseEvent, files: WorkingTreeFile[], dirName: string) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setDirContextMenu({ x: e.clientX, y: e.clientY, files, dirName });
+      setContextMenu(null);
     },
     [],
   );
 
   const closeContextMenu = useCallback(() => {
     setContextMenu(null);
+  }, []);
+
+  const closeDirContextMenu = useCallback(() => {
+    setDirContextMenu(null);
   }, []);
 
   return (
@@ -100,6 +122,7 @@ export function CommitTab() {
             onHighlightFile={highlightFile}
             onShowDiff={showDiff}
             onContextMenu={handleContextMenu}
+            onDirContextMenu={handleDirContextMenu}
           />
         )}
 
@@ -119,6 +142,7 @@ export function CommitTab() {
             onHighlightFile={highlightFile}
             onShowDiff={showDiff}
             onContextMenu={handleContextMenu}
+            onDirContextMenu={handleDirContextMenu}
           />
         )}
 
@@ -138,6 +162,7 @@ export function CommitTab() {
             onHighlightFile={highlightFile}
             onShowDiff={showDiff}
             onContextMenu={handleContextMenu}
+            onDirContextMenu={handleDirContextMenu}
           />
         )}
 
@@ -154,6 +179,15 @@ export function CommitTab() {
           y={contextMenu.y}
           file={contextMenu.file}
           onClose={closeContextMenu}
+        />
+      )}
+      {dirContextMenu && (
+        <DirContextMenu
+          x={dirContextMenu.x}
+          y={dirContextMenu.y}
+          files={dirContextMenu.files}
+          dirName={dirContextMenu.dirName}
+          onClose={closeDirContextMenu}
         />
       )}
     </div>
@@ -174,6 +208,11 @@ interface FileGroupProps {
   onHighlightFile: (key: string, mode: "single" | "toggle") => void;
   onShowDiff: (path: string, staged?: boolean) => Promise<void>;
   onContextMenu: (e: React.MouseEvent, file: WorkingTreeFile) => void;
+  onDirContextMenu: (
+    e: React.MouseEvent,
+    files: WorkingTreeFile[],
+    dirName: string,
+  ) => void;
 }
 
 function FileGroup({
@@ -190,6 +229,7 @@ function FileGroup({
   onHighlightFile,
   onShowDiff,
   onContextMenu,
+  onDirContextMenu,
 }: FileGroupProps) {
   const allKeys = useMemo(
     () => files.map((f) => `${f.path}:${f.staged}`),
@@ -301,6 +341,7 @@ function FileGroup({
               onHighlightFile={onHighlightFile}
               onShowDiff={onShowDiff}
               onContextMenu={onContextMenu}
+              onDirContextMenu={onDirContextMenu}
             />
           ) : (
             files.map((file) => {
@@ -400,6 +441,7 @@ function DirectoryTree({
   onHighlightFile,
   onShowDiff,
   onContextMenu,
+  onDirContextMenu,
 }: {
   files: WorkingTreeFile[];
   selectedFiles: Set<string>;
@@ -409,6 +451,11 @@ function DirectoryTree({
   onHighlightFile: (key: string, mode: "single" | "toggle") => void;
   onShowDiff: (path: string, staged?: boolean) => Promise<void>;
   onContextMenu: (e: React.MouseEvent, file: WorkingTreeFile) => void;
+  onDirContextMenu: (
+    e: React.MouseEvent,
+    files: WorkingTreeFile[],
+    dirName: string,
+  ) => void;
 }) {
   const { collapsedDirs, toggleDir } = useCommitStore();
   const tree = useMemo(() => buildDirTree(files), [files]);
@@ -426,6 +473,7 @@ function DirectoryTree({
       onHighlightFile={onHighlightFile}
       onShowDiff={onShowDiff}
       onContextMenu={onContextMenu}
+      onDirContextMenu={onDirContextMenu}
     />
   );
 }
@@ -442,6 +490,7 @@ function DirNodeView({
   onHighlightFile,
   onShowDiff,
   onContextMenu,
+  onDirContextMenu,
 }: {
   node: DirNode;
   depth: number;
@@ -454,6 +503,11 @@ function DirNodeView({
   onHighlightFile: (key: string, mode: "single" | "toggle") => void;
   onShowDiff: (path: string, staged?: boolean) => Promise<void>;
   onContextMenu: (e: React.MouseEvent, file: WorkingTreeFile) => void;
+  onDirContextMenu: (
+    e: React.MouseEvent,
+    files: WorkingTreeFile[],
+    dirName: string,
+  ) => void;
 }) {
   return (
     <>
@@ -477,15 +531,8 @@ function DirNodeView({
                 onContextMenu={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  // Collect all file paths under this directory and trigger delete
                   const allFiles = collectDirFiles(child);
-                  if (allFiles.length > 0) {
-                    import("../../shared/bridge").then(({ bridge }) => {
-                      bridge.request("deleteFiles", {
-                        filePaths: allFiles.map((f) => f.path),
-                      });
-                    });
-                  }
+                  onDirContextMenu(e, allFiles, child.name);
                 }}
               >
                 <span
@@ -530,6 +577,7 @@ function DirNodeView({
                   onHighlightFile={onHighlightFile}
                   onShowDiff={onShowDiff}
                   onContextMenu={onContextMenu}
+                  onDirContextMenu={onDirContextMenu}
                 />
               )}
             </div>
@@ -573,6 +621,86 @@ function collectDirFiles(node: DirNode): WorkingTreeFile[] {
     result.push(...collectDirFiles(child));
   }
   return result;
+}
+
+/* ─── Directory Context Menu ─────────────────────────────────────── */
+
+function DirContextMenu({
+  x,
+  y,
+  files,
+  dirName,
+  onClose,
+}: {
+  x: number;
+  y: number;
+  files: WorkingTreeFile[];
+  dirName: string;
+  onClose: () => void;
+}) {
+  const menuRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (!node) return;
+      const handleClick = (e: MouseEvent) => {
+        if (!node.contains(e.target as Node)) onClose();
+      };
+      const handleKey = (e: KeyboardEvent) => {
+        if (e.key === "Escape") onClose();
+      };
+      document.addEventListener("mousedown", handleClick);
+      document.addEventListener("keydown", handleKey);
+      return () => {
+        document.removeEventListener("mousedown", handleClick);
+        document.removeEventListener("keydown", handleKey);
+      };
+    },
+    [onClose],
+  );
+
+  const handleDelete = useCallback(() => {
+    const paths = files.map((f) => f.path);
+    import("../../shared/bridge").then(({ bridge }) => {
+      bridge.request("deleteFiles", { filePaths: paths });
+    });
+    onClose();
+  }, [files, onClose]);
+
+  return (
+    <div
+      className="commit-context-menu"
+      ref={menuRef}
+      style={{ position: "fixed", left: x, top: y, zIndex: 1000 }}
+    >
+      <button
+        type="button"
+        className="commit-context-menu-item"
+        onClick={handleDelete}
+      >
+        <DeleteDirIcon />
+        <span>Delete "{dirName}"...</span>
+        <span className="commit-context-menu-shortcut">⌫</span>
+      </button>
+    </div>
+  );
+}
+
+function DeleteDirIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+      className="commit-context-menu-icon"
+    >
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M7 2H9C9.55228 2 10 2.44772 10 3H6C6 2.44772 6.44772 2 7 2ZM5 3C5 1.89543 5.89543 1 7 1H9C10.1046 1 11 1.89543 11 3H13C13.5523 3 14 3.44772 14 4V5V6H13V13C13 14.1046 12.1046 15 11 15H5C3.89543 15 3 14.1046 3 13V6H2V5V4C2 3.44772 2.44772 3 3 3H5ZM11 4H10H6H5H3V5H4H12H13V4H11ZM4 6H12V13C12 13.5523 11.5523 14 11 14H5C4.44772 14 4 13.5523 4 13V6ZM6.5 7C6.22386 7 6 7.22386 6 7.5V11.5C6 11.7761 6.22386 12 6.5 12C6.77614 12 7 11.7761 7 11.5V7.5C7 7.22386 6.77614 7 6.5 7ZM9 7.5C9 7.22386 9.22386 7 9.5 7C9.77614 7 10 7.22386 10 7.5V11.5C10 11.7761 9.77614 12 9.5 12C9.22386 12 9 11.7761 9 11.5V7.5Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
 }
 
 function FolderIcon() {
