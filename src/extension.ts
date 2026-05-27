@@ -1085,7 +1085,7 @@ export function deactivate() {}
  * Extract the patch section for a specific file from a combined patch.
  * Handles IDEA format (Index: path) and standard git format (diff --git).
  */
-function extractFilePatch(
+function _extractFilePatch(
   patchContent: string,
   filePath: string,
 ): string | null {

@@ -41,7 +41,8 @@ function buildRefDisplayItems(refs: RefInfo[]): Array<{
   for (const ref of refs) {
     if (ref.type === "HEAD") continue;
     if (ref.type === "branch") {
-      if (!hasHead) localBranches.push(ref.name);
+      // Always collect local branches for merge logic
+      localBranches.push(ref.name);
       continue;
     }
     if (ref.type === "remote-branch") {
@@ -53,63 +54,59 @@ function buildRefDisplayItems(refs: RefInfo[]): Array<{
     }
   }
 
-  // HEAD tag (always shown if present)
-  if (hasHead) {
-    const label = branchRef ? `HEAD → ${branchRef.name}` : "HEAD";
-    result.push({ key: "HEAD", type: "HEAD", label });
-  }
-
-  // Merge local + remote branches that share the same base name
-  // e.g. "prod" (local) + "origin/prod" (remote) → "origin & prod"
-  const allBranchNames: string[] = [...localBranches];
-  for (const rb of remoteBranches) {
-    // Strip remote prefix (e.g. "origin/prod" → "prod")
-    const baseName = rb.includes("/") ? rb.substring(rb.indexOf("/") + 1) : rb;
-    if (!allBranchNames.includes(baseName) && !allBranchNames.includes(rb)) {
-      allBranchNames.push(rb);
-    }
-  }
-
   // Build merged branch display
-  if (localBranches.length > 0 || remoteBranches.length > 0) {
-    // Combine all unique names for display
-    const displayNames: string[] = [];
-    const usedRemotes = new Set<string>();
+  const displayNames: string[] = [];
+  const usedRemotes = new Set<string>();
+  const usedLocals = new Set<string>();
 
-    for (const local of localBranches) {
-      // Find matching remote
-      const matchingRemote = remoteBranches.find((rb) => {
-        const baseName = rb.includes("/")
-          ? rb.substring(rb.indexOf("/") + 1)
-          : rb;
-        return baseName === local;
-      });
-      if (matchingRemote) {
-        // Merge: show "origin & branchName" style
-        const remote = matchingRemote.substring(0, matchingRemote.indexOf("/"));
-        displayNames.push(`${remote} & ${local}`);
-        usedRemotes.add(matchingRemote);
-      } else {
-        displayNames.push(local);
-      }
+  for (const local of localBranches) {
+    // Find matching remote (e.g. "origin/prod" matches local "prod")
+    const matchingRemote = remoteBranches.find((rb) => {
+      const baseName = rb.includes("/")
+        ? rb.substring(rb.indexOf("/") + 1)
+        : rb;
+      return baseName === local;
+    });
+    if (matchingRemote) {
+      // Merge: show "origin & branchName" style
+      const remote = matchingRemote.substring(0, matchingRemote.indexOf("/"));
+      displayNames.push(`${remote} & ${local}`);
+      usedRemotes.add(matchingRemote);
+      usedLocals.add(local);
     }
+  }
 
-    // Add remaining remote branches not merged with local
-    for (const rb of remoteBranches) {
-      if (!usedRemotes.has(rb)) {
-        displayNames.push(rb);
-      }
-    }
+  // Add local branches that weren't merged (skip if HEAD covers it)
+  for (const local of localBranches) {
+    if (usedLocals.has(local)) continue;
+    if (hasHead && branchRef?.name === local) continue; // HEAD already represents this
+    displayNames.push(local);
+  }
 
-    // Render each as a separate tag
-    for (const name of displayNames) {
-      const isRemote = name.includes("/") || name.includes(" & ");
-      result.push({
-        key: `branch:${name}`,
-        type: isRemote ? "remote-branch" : "branch",
-        label: name,
-      });
+  // Add remaining remote branches not merged with local
+  for (const rb of remoteBranches) {
+    if (!usedRemotes.has(rb)) {
+      displayNames.push(rb);
     }
+  }
+
+  // HEAD: show icon only (no text label) in row display
+  if (hasHead) {
+    result.push({ key: "HEAD", type: "HEAD", label: "" });
+    // Ensure the branch name is shown if not already merged with remote
+    if (branchRef && !usedLocals.has(branchRef.name)) {
+      displayNames.unshift(branchRef.name);
+    }
+  }
+
+  // Render branch/remote tags
+  for (const name of displayNames) {
+    const isRemote = name.includes("/") || name.includes(" & ");
+    result.push({
+      key: `branch:${name}`,
+      type: isRemote ? "remote-branch" : "branch",
+      label: name,
+    });
   }
 
   // Tags

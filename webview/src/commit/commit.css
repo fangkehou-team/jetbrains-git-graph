@@ -36,7 +36,7 @@
 .commit-tab {
   padding: 6px 16px;
   border: 1px solid transparent;
-  background: transparent !important;
+  background: transparent;
   color: var(--vscode-foreground);
   cursor: pointer;
   font-size: 12px;
@@ -50,12 +50,12 @@
 
 .commit-tab:hover:not(:disabled) {
   opacity: 1;
-  background: #ededed !important;
+  background: #ededed;
 }
 
 .commit-tab.active {
   opacity: 1;
-  background: #dfe7f5 !important;
+  background: #dfe7f5;
   border: 1px solid #b8cfe6;
 }
 
@@ -85,7 +85,7 @@
   width: 28px;
   height: 28px;
   border: none;
-  background: transparent !important;
+  background: transparent;
   color: var(--vscode-foreground);
   cursor: pointer;
   border-radius: 6px;
@@ -95,18 +95,18 @@
 }
 
 .commit-toolbar-btn:hover:not(:disabled) {
-  background: #ededed !important;
+  background: #ededed;
   opacity: 1;
 }
 
 .commit-toolbar-btn:active {
-  background: #d4d4d4 !important;
+  background: #d4d4d4;
 }
 
 .commit-toolbar-btn:disabled {
   opacity: 0.35;
   cursor: default;
-  background: transparent !important;
+  background: transparent;
 }
 
 .commit-toolbar-btn svg {
@@ -295,7 +295,7 @@
   width: 100%;
   padding: 5px 12px;
   border: none;
-  background: transparent !important;
+  background: transparent;
   color: var(--vscode-menu-foreground, var(--vscode-foreground));
   font-size: 12px;
   text-align: left;
@@ -305,7 +305,7 @@
 }
 
 .commit-context-menu-item:hover:not(:disabled) {
-  background: var(--vscode-menu-selectionBackground, #e8f0fe) !important;
+  background: var(--vscode-menu-selectionBackground, #e8f0fe);
   color: var(--vscode-menu-selectionForeground, #333);
 }
 
@@ -422,12 +422,12 @@
 }
 
 .commit-btn-secondary {
-  background: #ededed !important;
+  background: #ededed;
   color: var(--vscode-foreground);
 }
 
 .commit-btn-secondary:hover:not(:disabled) {
-  background: #d4d4d4 !important;
+  background: #d4d4d4;
 }
 
 .commit-btn-secondary:disabled {
