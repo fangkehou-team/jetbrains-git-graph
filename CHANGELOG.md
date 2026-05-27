@@ -1,5 +1,13 @@
 # Changelog / 更新日志
 
+## [0.4.3] - 2026-05-27
+
+### Fixed / 修复
+- Larger checkboxes (16px) for better visibility / 更大的复选框（16px）提升可见性
+- Removed yellow/orange focus outline on unchecked checkboxes / 移除取消选中时的黄色聚焦边框
+- Checkbox accent color uses IDEA blue (#3574f0) / 复选框选中颜色使用 IDEA 蓝色
+- "Commit and Push" button hover color matches toolbar style (#ededed) / "Commit and Push" 按钮悬浮颜色与工具栏一致
+
 ## [0.4.2] - 2026-05-27
 
 ### Added / 新增
