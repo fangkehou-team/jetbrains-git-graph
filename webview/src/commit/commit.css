@@ -9,6 +9,19 @@
   background: var(--vscode-sideBar-background);
 }
 
+/* All checkboxes in commit panel */
+.commit-app input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #3574f0;
+  cursor: pointer;
+}
+
+.commit-app input[type="checkbox"]:focus {
+  outline: none;
+  box-shadow: none;
+}
+
 /* ─── Tabs ─────────────────────────────────────────────────────── */
 .commit-tabs {
   display: flex;
@@ -183,6 +196,15 @@
 
 .commit-group-checkbox {
   margin-right: 6px;
+  width: 16px;
+  height: 16px;
+  accent-color: #3574f0;
+  cursor: pointer;
+}
+
+.commit-group-checkbox:focus {
+  outline: none;
+  box-shadow: none;
 }
 
 /* ─── File Item ────────────────────────────────────────────────── */
@@ -209,6 +231,15 @@
 .commit-file-checkbox {
   flex-shrink: 0;
   margin-right: 4px;
+  width: 16px;
+  height: 16px;
+  accent-color: #3574f0;
+  cursor: pointer;
+}
+
+.commit-file-checkbox:focus {
+  outline: none;
+  box-shadow: none;
 }
 
 .commit-file-icon {
