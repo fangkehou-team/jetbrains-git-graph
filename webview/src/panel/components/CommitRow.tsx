@@ -22,12 +22,6 @@ function formatDateTime(dateStr: string): string {
   return `${yyyy}-${mm}-${dd} ${hh}:${min}`;
 }
 
-function truncateFromStart(text: string, maxChars = 14): string {
-  if (text.length <= maxChars) return text;
-  if (maxChars <= 3) return "...";
-  return `...${text.slice(-(maxChars - 3))}`;
-}
-
 function buildRefDisplayItems(refs: RefInfo[]): Array<{
   key: string;
   type: RefInfo["type"];
@@ -37,28 +31,45 @@ function buildRefDisplayItems(refs: RefInfo[]): Array<{
   const hasHead = refs.some((ref) => ref.type === "HEAD");
   const seen = new Set<string>();
 
-  return refs
-    .filter((ref) => !(hasHead && ref.type === "branch"))
-    .map((ref, index) => {
-      const label =
-        ref.type === "HEAD"
-          ? branchRef
-            ? `HEAD \u2192 ${branchRef.name}`
-            : "HEAD"
-          : ref.name;
-      return {
-        key: `${ref.type}:${ref.name}:${index}`,
-        type: ref.type,
-        label: label.trim(),
-      };
-    })
-    .filter((item) => {
-      if (!item.label) return false;
-      const dedupeKey = `${item.type}:${item.label}`;
-      if (seen.has(dedupeKey)) return false;
-      seen.add(dedupeKey);
-      return true;
+  // Group refs by type for compact display
+  const grouped = new Map<string, string[]>();
+
+  for (const ref of refs) {
+    if (hasHead && ref.type === "branch") continue; // Skip branch if HEAD is present
+    const label =
+      ref.type === "HEAD" ? (branchRef ? branchRef.name : "HEAD") : ref.name;
+    if (!label.trim()) continue;
+
+    const type = ref.type === "HEAD" ? "HEAD" : ref.type;
+    if (!grouped.has(type)) grouped.set(type, []);
+    const list = grouped.get(type)!;
+    if (!list.includes(label.trim())) {
+      list.push(label.trim());
+    }
+  }
+
+  const result: Array<{ key: string; type: RefInfo["type"]; label: string }> =
+    [];
+
+  for (const [type, labels] of grouped) {
+    const dedupeKey = `${type}:${labels.join(",")}`;
+    if (seen.has(dedupeKey)) continue;
+    seen.add(dedupeKey);
+
+    // Compact: merge multiple refs of same type with " & "
+    const compactLabel =
+      labels.length <= 2
+        ? labels.join(" & ")
+        : `${labels[0]} +${labels.length - 1}`;
+
+    result.push({
+      key: `${type}:${labels[0]}`,
+      type: type as RefInfo["type"],
+      label: compactLabel,
     });
+  }
+
+  return result;
 }
 
 export interface ColumnWidths {
@@ -117,37 +128,50 @@ export function CommitRow({
       <span
         style={{
           flex: 1,
+          display: "flex",
+          alignItems: "center",
           overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
           paddingRight: 8,
+          gap: 6,
         }}
       >
-        {commit.subject}
+        <span
+          style={{
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            flexShrink: 1,
+            minWidth: 0,
+          }}
+        >
+          {commit.subject}
+        </span>
         {refItems.length > 0 && (
-          <span style={{ display: "inline-flex", gap: 4, marginLeft: 8 }}>
+          <span style={{ display: "inline-flex", gap: 3, flexShrink: 0 }}>
             {refItems.map((item) => {
               const colors = REF_COLORS[item.type] ?? REF_COLORS.branch;
-              const displayLabel = truncateFromStart(item.label, 13);
               return (
                 <span
                   key={item.key}
                   style={{
-                    padding: "0 6px",
+                    padding: "0 5px",
                     borderRadius: 3,
                     display: "inline-block",
-                    fontSize: "0.8em",
+                    fontSize: "0.75em",
                     fontWeight: 500,
-                    lineHeight: "18px",
+                    lineHeight: "16px",
                     background: colors.bg,
                     color: colors.fg,
-                    border: "1px solid #00000022",
+                    border: "1px solid #00000015",
                     whiteSpace: "nowrap",
                     verticalAlign: "middle",
+                    maxWidth: 180,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
                   }}
                   title={item.label}
                 >
-                  {displayLabel}
+                  {item.label}
                 </span>
               );
             })}
