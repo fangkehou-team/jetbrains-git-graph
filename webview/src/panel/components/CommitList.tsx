@@ -1,5 +1,5 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useModifierClickSelection } from "../../shared/hooks/useModifierClickSelection";
 import { usePanelStore } from "../../shared/store/panel-store";
 import type { Commit } from "../../shared/types/git";
@@ -56,6 +56,24 @@ export function CommitList({
     ...Object.values(graphLayout).map((l) => l.column),
   );
   const graphWidth = (maxColumn + 1) * COLUMN_WIDTH + GRAPH_PADDING * 2;
+
+  // Compute per-row max column (own column + all line target columns)
+  const rowMaxColumns = useMemo(() => {
+    const result: Record<string, number> = {};
+    for (const commit of visibleCommits) {
+      const lane = graphLayout[commit.hash];
+      if (!lane) {
+        result[commit.hash] = 0;
+        continue;
+      }
+      let maxCol = lane.column;
+      for (const line of lane.lines) {
+        maxCol = Math.max(maxCol, line.toColumn, line.fromColumn);
+      }
+      result[commit.hash] = maxCol;
+    }
+    return result;
+  }, [visibleCommits, graphLayout]);
 
   const virtualizer = useVirtualizer({
     count: visibleCommits.length,
@@ -229,6 +247,7 @@ export function CommitList({
                 <CommitRow
                   commit={commit}
                   lane={lane}
+                  rowMaxColumn={rowMaxColumns[commit.hash] ?? 0}
                   columnWidths={columnWidths}
                   onCommitClick={handleCommitClick}
                   onContextMenu={handleContextMenu}
