@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useCommitStore } from "../../shared/store/commit-store";
 import { bridge } from "../../shared/bridge";
+import { useCommitStore } from "../../shared/store/commit-store";
 
 export function CommitMessageArea() {
   const {
@@ -227,7 +227,8 @@ const HistoryDropdown = React.forwardRef<HTMLDivElement, HistoryDropdownProps>(
         (innerRef as React.MutableRefObject<HTMLDivElement | null>).current =
           node;
         if (typeof ref === "function") ref(node);
-        else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = node;
+        else if (ref)
+          (ref as React.MutableRefObject<HTMLDivElement | null>).current = node;
       },
       [ref],
     );
@@ -267,8 +268,7 @@ const HistoryDropdown = React.forwardRef<HTMLDivElement, HistoryDropdownProps>(
           padding: "4px 0",
           maxHeight: 250,
           overflowY: "auto",
-          boxShadow:
-            "0 -3px 12px rgba(0,0,0,0.1), 0 1px 4px rgba(0,0,0,0.06)",
+          boxShadow: "0 -3px 12px rgba(0,0,0,0.1), 0 1px 4px rgba(0,0,0,0.06)",
         }}
       >
         {messages.length === 0 ? (
