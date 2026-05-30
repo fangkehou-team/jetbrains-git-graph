@@ -27,11 +27,14 @@ export class CommitViewProvider implements vscode.WebviewViewProvider {
     const routerDisposable = this.messageRouter.registerWebview(webview);
     webviewView.onDidDispose(() => routerDisposable.dispose());
 
-    // When commit panel becomes visible, also show the Git Log panel
+    // When commit panel becomes visible, also show the Git Log panel and refresh both
     // When hidden (clicked again to collapse), hide the Git Log panel too
     webviewView.onDidChangeVisibility(() => {
       if (webviewView.visible) {
         void vscode.commands.executeCommand("git-brains.gitLog.focus");
+        // Trigger refresh for both commit panel and git log
+        this.messageRouter.broadcastEvent("commitStateChanged", {});
+        this.messageRouter.broadcastEvent("gitStateChanged", { scope: "all" });
       } else {
         void vscode.commands.executeCommand("workbench.action.closePanel");
       }
