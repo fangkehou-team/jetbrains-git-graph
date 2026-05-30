@@ -31,10 +31,14 @@ export class CommitViewProvider implements vscode.WebviewViewProvider {
     // When hidden (clicked again to collapse), hide the Git Log panel too
     webviewView.onDidChangeVisibility(() => {
       if (webviewView.visible) {
-        void vscode.commands.executeCommand("git-brains.gitLog.focus");
-        // Trigger refresh for both commit panel and git log
-        this.messageRouter.broadcastEvent("commitStateChanged", {});
-        this.messageRouter.broadcastEvent("gitStateChanged", { scope: "all" });
+        // Small delay to ensure panels are ready
+        setTimeout(() => {
+          void vscode.commands.executeCommand("git-brains.gitLog.focus");
+          this.messageRouter.broadcastEvent("commitStateChanged", {});
+          this.messageRouter.broadcastEvent("gitStateChanged", {
+            scope: "all",
+          });
+        }, 100);
       } else {
         void vscode.commands.executeCommand("workbench.action.closePanel");
       }
