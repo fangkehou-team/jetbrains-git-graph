@@ -137,6 +137,8 @@ export interface WorkingTreeFile {
     | "untracked"
     | "conflicted";
   staged: boolean;
+  /** Absolute workspace root path this file belongs to */
+  workspaceRoot: string;
 }
 
 /** Shelf entry (git stash based) */

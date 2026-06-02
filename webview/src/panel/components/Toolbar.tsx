@@ -7,12 +7,17 @@ export function Toolbar() {
   const commits = usePanelStore((s) => s.commits);
   const branches = usePanelStore((s) => s.branches);
   const currentBranch = usePanelStore((s) => s.currentBranch);
+  const repos = usePanelStore((s) => s.repos);
+  const activeRepo = usePanelStore((s) => s.activeRepo);
+  const setActiveRepo = usePanelStore((s) => s.setActiveRepo);
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const historyBranch = filter.branch || currentBranch;
 
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [showDateDropdown, setShowDateDropdown] = useState(false);
   const [showBranchDropdown, setShowBranchDropdown] = useState(false);
+  const [showRepoDropdown, setShowRepoDropdown] = useState(false);
+  const hasMultipleRepos = repos.length > 1;
 
   // Collect unique authors from commits
   const authors = useMemo(() => {
@@ -91,6 +96,38 @@ export function Toolbar() {
         flexShrink: 0,
       }}
     >
+      {/* Repo selector — only shown when multiple repos exist */}
+      {hasMultipleRepos && (
+        <div style={{ position: "relative" }}>
+          <FilterButton
+            label="Repo"
+            active={true}
+            activeValue={
+              repos.find((r) => r.root === activeRepo)?.name ?? activeRepo ?? ""
+            }
+            onClick={() => {
+              setShowRepoDropdown(!showRepoDropdown);
+              setShowUserDropdown(false);
+              setShowDateDropdown(false);
+              setShowBranchDropdown(false);
+            }}
+          />
+          {showRepoDropdown && (
+            <SearchableDropdown
+              items={repos.map((r) => r.root)}
+              activeItem={activeRepo ?? ""}
+              placeholder="Select repository..."
+              onSelect={(root) => {
+                void setActiveRepo(root);
+                setShowRepoDropdown(false);
+              }}
+              onClose={() => setShowRepoDropdown(false)}
+              labelMap={Object.fromEntries(repos.map((r) => [r.root, r.name]))}
+            />
+          )}
+        </div>
+      )}
+
       <SearchInput
         placeholder="Search commits..."
         defaultValue={filter.searchQuery}

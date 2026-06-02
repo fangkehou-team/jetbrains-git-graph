@@ -18,7 +18,24 @@ interface PanelFilter {
   file: string;
 }
 
+export interface RepoInfo {
+  root: string;
+  name: string;
+  currentBranch: string | null;
+}
+
+/** Per-repo selection state to restore on switch */
+interface RepoSelectionState {
+  selectedCommitHash: string | null;
+  selectedCommitHashes: string[];
+  lastSelectedCommitHash: string | null;
+  rangeOldest: string | null;
+  rangeNewest: string | null;
+}
+
 interface PanelStore {
+  repos: RepoInfo[];
+  activeRepo: string | null;
   commits: Commit[];
   /** Commits filtered by search/author (client-side). Graph layout uses full `commits`. */
   visibleCommits: Commit[];
@@ -52,6 +69,11 @@ interface PanelStore {
   hasMore: boolean;
   operationInProgress: boolean;
 
+  /** Per-repo selection snapshots */
+  repoSelectionStates: Map<string, RepoSelectionState>;
+
+  fetchRepos: () => Promise<void>;
+  setActiveRepo: (root: string | null) => Promise<void>;
   fetchInitialData: () => Promise<void>;
   loadMore: () => Promise<void>;
   selectCommit: (
@@ -181,6 +203,8 @@ function deriveSelectionFromVisible(
 }
 
 export const usePanelStore = create<PanelStore>((set, get) => ({
+  repos: [],
+  activeRepo: null,
   commits: [],
   visibleCommits: [],
   branches: [],
@@ -209,13 +233,83 @@ export const usePanelStore = create<PanelStore>((set, get) => ({
   hasMore: true,
   operationInProgress: false,
 
+  repoSelectionStates: new Map(),
+
+  async fetchRepos() {
+    try {
+      const repos = (await bridge.request("getRepos")) as RepoInfo[] | null;
+      if (Array.isArray(repos)) {
+        const { activeRepo } = get();
+        // Default to first repo if none selected
+        const nextActive = activeRepo ?? repos[0]?.root ?? null;
+        set({ repos, activeRepo: nextActive });
+      }
+    } catch (err) {
+      console.error("fetchRepos failed:", err);
+    }
+  },
+
+  async setActiveRepo(root: string | null) {
+    const { activeRepo, repoSelectionStates } = get();
+    if (root === activeRepo) return;
+
+    // Save current selection state for the leaving repo
+    if (activeRepo) {
+      const newStates = new Map(repoSelectionStates);
+      newStates.set(activeRepo, {
+        selectedCommitHash: get().selectedCommitHash,
+        selectedCommitHashes: get().selectedCommitHashes,
+        lastSelectedCommitHash: get().lastSelectedCommitHash,
+        rangeOldest: get().rangeOldest,
+        rangeNewest: get().rangeNewest,
+      });
+      set({ repoSelectionStates: newStates });
+    }
+
+    // Restore saved state for the entering repo, or default
+    const saved = root ? repoSelectionStates.get(root) : undefined;
+    set({
+      activeRepo: root,
+      commits: [],
+      visibleCommits: [],
+      branches: [],
+      tags: [],
+      currentBranch: "",
+      graphLayout: {},
+      laneSnapshot: null,
+      selectedCommitHash: saved?.selectedCommitHash ?? null,
+      selectedCommitHashes: saved?.selectedCommitHashes ?? [],
+      lastSelectedCommitHash: saved?.lastSelectedCommitHash ?? null,
+      commitFiles: [],
+      selectedFilePath: null,
+      rangeOldest: saved?.rangeOldest ?? null,
+      rangeNewest: saved?.rangeNewest ?? null,
+      pendingSelectionFromFilter: [],
+      collapsedSequenceIds: new Set(),
+      collapsedIntermediates: new Map(),
+      hasMore: true,
+    });
+
+    if (root) {
+      await get().fetchInitialData();
+    }
+    // Notify backend of active repo change for status bar update
+    void bridge.request("setActiveRepo", { workspaceRoot: root ?? undefined });
+  },
+
   async fetchInitialData() {
     set({ loading: true });
     const start = Date.now();
     try {
-      const { filter } = get();
+      const { filter, activeRepo } = get();
+      if (!activeRepo) {
+        set({ loading: false });
+        return;
+      }
+
       const [graphResult, branches, tags] = await Promise.all([
         bridge.request("getGraphData", {
+          workspaceRoot: activeRepo,
           maxCount: 200,
           branch: filter.branch || undefined,
           file: filter.file || undefined,
@@ -223,8 +317,12 @@ export const usePanelStore = create<PanelStore>((set, get) => ({
           graphData: { commits: Commit[]; lanes: Record<string, LaneInfo> };
           snapshot: LaneSnapshot;
         } | null>,
-        bridge.request("getBranches") as Promise<BranchInfo[] | null>,
-        bridge.request("getTags") as Promise<TagInfo[] | null>,
+        bridge.request("getBranches", { workspaceRoot: activeRepo }) as Promise<
+          BranchInfo[] | null
+        >,
+        bridge.request("getTags", { workspaceRoot: activeRepo }) as Promise<
+          TagInfo[] | null
+        >,
       ]);
 
       const commits = graphResult?.graphData?.commits ?? [];
@@ -265,6 +363,7 @@ export const usePanelStore = create<PanelStore>((set, get) => ({
           });
 
           const files = (await bridge.request("getCommitRangeFiles", {
+            workspaceRoot: activeRepo,
             hashes: validHashes,
           })) as DiffFile[] | null;
           set({ commitFiles: files ?? [] });
@@ -297,6 +396,7 @@ export const usePanelStore = create<PanelStore>((set, get) => ({
       if (firstVisible) {
         const hash = firstVisible.hash;
         const files = (await bridge.request("getCommitRangeFiles", {
+          workspaceRoot: activeRepo,
           hashes: [hash],
         })) as DiffFile[] | null;
         set({ commitFiles: files ?? [], rangeOldest: hash, rangeNewest: hash });
@@ -313,12 +413,14 @@ export const usePanelStore = create<PanelStore>((set, get) => ({
   },
 
   async loadMore() {
-    const { commits, laneSnapshot, hasMore, loading, filter } = get();
-    if (!hasMore || loading) return;
+    const { commits, laneSnapshot, hasMore, loading, filter, activeRepo } =
+      get();
+    if (!hasMore || loading || !activeRepo) return;
 
     set({ loading: true });
     try {
       const result = (await bridge.request("loadMoreLog", {
+        workspaceRoot: activeRepo,
         skip: commits.length,
         count: 200,
         snapshot: laneSnapshot,
@@ -414,7 +516,9 @@ export const usePanelStore = create<PanelStore>((set, get) => ({
       rangeNewest: orderedHashes[0],
     });
     try {
+      const { activeRepo } = get();
       const files = (await bridge.request("getCommitRangeFiles", {
+        workspaceRoot: activeRepo ?? undefined,
         hashes: orderedHashes,
       })) as DiffFile[] | null;
       set({ commitFiles: files ?? [] });
@@ -429,12 +533,13 @@ export const usePanelStore = create<PanelStore>((set, get) => ({
 
   async openDiffEditor(commitHash: string, file: DiffFile) {
     try {
-      const { selectedCommitHashes, commitFiles } = get();
+      const { selectedCommitHashes, commitFiles, activeRepo } = get();
       const filePath = file.newPath || file.oldPath;
       const isMulti = selectedCommitHashes.length > 1;
 
       if (isMulti) {
         await bridge.request("openDiffEditor", {
+          workspaceRoot: activeRepo ?? undefined,
           commit: selectedCommitHashes[0],
           filePath,
           file,
@@ -443,6 +548,7 @@ export const usePanelStore = create<PanelStore>((set, get) => ({
         });
       } else {
         await bridge.request("openDiffEditor", {
+          workspaceRoot: activeRepo ?? undefined,
           commit: commitHash,
           filePath,
           file,
@@ -584,7 +690,9 @@ export const usePanelStore = create<PanelStore>((set, get) => ({
     if (hashes.length > 0) {
       void (async () => {
         try {
+          const { activeRepo } = get();
           const files = (await bridge.request("getCommitRangeFiles", {
+            workspaceRoot: activeRepo ?? undefined,
             hashes,
           })) as DiffFile[] | null;
           set({ commitFiles: files ?? [] });

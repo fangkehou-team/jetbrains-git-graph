@@ -53,22 +53,22 @@ export function CommitFileContextMenu({
   };
 
   const handleShowDiff = useCallback(() => {
-    showDiff(file.path, file.staged);
+    showDiff(file.path, file.staged, file.workspaceRoot);
     onClose();
   }, [file, showDiff, onClose]);
 
   const handleStage = useCallback(() => {
-    stageFile(file.path);
+    stageFile(file.path, file.workspaceRoot);
     onClose();
   }, [file, stageFile, onClose]);
 
   const handleUnstage = useCallback(() => {
-    unstageFile(file.path);
+    unstageFile(file.path, file.workspaceRoot);
     onClose();
   }, [file, unstageFile, onClose]);
 
   const handleRollback = useCallback(() => {
-    rollbackFile(file.path);
+    rollbackFile(file.path, file.workspaceRoot);
     onClose();
   }, [file, rollbackFile, onClose]);
 
@@ -76,14 +76,17 @@ export function CommitFileContextMenu({
     // If multiple files are highlighted, shelve all of them; otherwise just this file
     const fileKey = `${file.path}:${file.staged}`;
     if (highlightedFiles.size > 1 && highlightedFiles.has(fileKey)) {
-      // Shelve all highlighted files
-      const paths = changes
-        .filter((f) => highlightedFiles.has(`${f.path}:${f.staged}`))
-        .map((f) => f.path);
-      shelveChanges("Shelved changes", [...new Set(paths)]);
+      // Shelve all highlighted files (from the same repo for simplicity)
+      const repoChanges = changes.filter(
+        (f) =>
+          f.workspaceRoot === file.workspaceRoot &&
+          highlightedFiles.has(`${f.path}:${f.staged}`),
+      );
+      const paths = repoChanges.map((f) => f.path);
+      shelveChanges("Shelved changes", [...new Set(paths)], file.workspaceRoot);
     } else {
       // Shelve only this file
-      shelveChanges("Shelved changes", [file.path]);
+      shelveChanges("Shelved changes", [file.path], file.workspaceRoot);
     }
     onClose();
   }, [file, shelveChanges, highlightedFiles, changes, onClose]);
@@ -95,11 +98,17 @@ export function CommitFileContextMenu({
         .filter((f) => highlightedFiles.has(`${f.path}:${f.staged}`))
         .map((f) => f.path);
       import("../../shared/bridge").then(({ bridge }) => {
-        bridge.request("deleteFiles", { filePaths: [...new Set(paths)] });
+        bridge.request("deleteFiles", {
+          filePaths: [...new Set(paths)],
+          workspaceRoot: file.workspaceRoot,
+        });
       });
     } else {
       import("../../shared/bridge").then(({ bridge }) => {
-        bridge.request("deleteFiles", { filePaths: [file.path] });
+        bridge.request("deleteFiles", {
+          filePaths: [file.path],
+          workspaceRoot: file.workspaceRoot,
+        });
       });
     }
     onClose();
@@ -107,14 +116,20 @@ export function CommitFileContextMenu({
 
   const handleJumpToSource = useCallback(() => {
     import("../../shared/bridge").then(({ bridge }) => {
-      bridge.request("openFile", { filePath: file.path });
+      bridge.request("openFile", {
+        filePath: file.path,
+        workspaceRoot: file.workspaceRoot,
+      });
     });
     onClose();
   }, [file, onClose]);
 
   const handleOpenInSystemFolder = useCallback(() => {
     import("../../shared/bridge").then(({ bridge }) => {
-      bridge.request("revealInSystemExplorer", { filePath: file.path });
+      bridge.request("revealInSystemExplorer", {
+        filePath: file.path,
+        workspaceRoot: file.workspaceRoot,
+      });
     });
     onClose();
   }, [file, onClose]);

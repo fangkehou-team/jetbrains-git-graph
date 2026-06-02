@@ -44,15 +44,30 @@ const LOG_FORMAT = [
 
 export class GitService {
   readonly cache = new GitCache();
+  /** Absolute path to the actual git repository root (may differ from cwd). */
+  gitRoot: string;
 
-  constructor(private readonly cwd: string) {}
+  constructor(private readonly cwd: string) {
+    this.gitRoot = cwd;
+  }
+
+  /** Resolve the real git root via `git rev-parse --show-toplevel`. */
+  async resolveGitRoot(): Promise<string> {
+    try {
+      const out = await this.execGit(["rev-parse", "--show-toplevel"]);
+      this.gitRoot = out.trim();
+    } catch {
+      this.gitRoot = this.cwd;
+    }
+    return this.gitRoot;
+  }
 
   private async execGit(
     args: string[],
     maxBuffer = MAX_BUFFER,
   ): Promise<string> {
     const { stdout } = await execFileAsync("git", args, {
-      cwd: this.cwd,
+      cwd: this.gitRoot,
       maxBuffer,
       env: {
         ...process.env,
@@ -591,16 +606,29 @@ export class GitService {
         workTreeStatus !== "!"
       ) {
         // Staged version
-        files.push({ path: filePath, oldPath, status, staged: true });
+        files.push({
+          path: filePath,
+          oldPath,
+          status,
+          staged: true,
+          workspaceRoot: this.gitRoot,
+        });
         // Unstaged version
         files.push({
           path: filePath,
           oldPath,
           status: "modified",
           staged: false,
+          workspaceRoot: this.gitRoot,
         });
       } else {
-        files.push({ path: filePath, oldPath, status, staged });
+        files.push({
+          path: filePath,
+          oldPath,
+          status,
+          staged,
+          workspaceRoot: this.gitRoot,
+        });
       }
     }
     return files;

@@ -46,13 +46,17 @@ export function PanelApp() {
   const loading = usePanelStore((s) => s.loading);
   const commits = usePanelStore((s) => s.commits);
   const operationInProgress = usePanelStore((s) => s.operationInProgress);
+  const fetchRepos = usePanelStore((s) => s.fetchRepos);
   const fetchInitialData = usePanelStore((s) => s.fetchInitialData);
 
   const middleRef = usePreventSelect();
 
   useEffect(() => {
-    fetchInitialData();
-  }, [fetchInitialData]);
+    void (async () => {
+      await fetchRepos();
+      await fetchInitialData();
+    })();
+  }, [fetchRepos, fetchInitialData]);
 
   if (loading && commits.length === 0) {
     return (

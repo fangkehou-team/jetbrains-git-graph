@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import type { GitCache } from "../git/cache";
+import type { GitService } from "../git/gitService";
 import type { MessageRouter } from "../messages/messageRouter";
 import { getWebviewHtml } from "./html";
 
@@ -9,7 +9,7 @@ export class CommitViewProvider implements vscode.WebviewViewProvider {
   constructor(
     private readonly extensionUri: vscode.Uri,
     private readonly messageRouter: MessageRouter,
-    private readonly caches: GitCache[] = [],
+    private readonly gitServices: Map<string, GitService>,
   ) {}
 
   resolveWebviewView(
@@ -33,8 +33,8 @@ export class CommitViewProvider implements vscode.WebviewViewProvider {
     setTimeout(() => {
       if (webviewView.visible) {
         void vscode.commands.executeCommand("git-brains.gitLog.focus");
-        for (const cache of this.caches) {
-          cache.invalidate();
+        for (const svc of this.gitServices.values()) {
+          svc.cache.invalidate();
         }
         this.messageRouter.broadcastEvent("commitStateChanged", {});
         this.messageRouter.broadcastEvent("gitStateChanged", { scope: "all" });
@@ -49,8 +49,8 @@ export class CommitViewProvider implements vscode.WebviewViewProvider {
         setTimeout(() => {
           void vscode.commands.executeCommand("git-brains.gitLog.focus");
           // Invalidate all git caches to ensure fresh data
-          for (const cache of this.caches) {
-            cache.invalidate();
+          for (const svc of this.gitServices.values()) {
+            svc.cache.invalidate();
           }
           this.messageRouter.broadcastEvent("commitStateChanged", {});
           this.messageRouter.broadcastEvent("gitStateChanged", {

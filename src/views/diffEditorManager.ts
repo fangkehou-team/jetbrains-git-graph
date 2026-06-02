@@ -10,8 +10,16 @@ export class DiffEditorManager {
   private diffIndex = -1;
   private diffBaseRef?: string;
   private diffCherryPickHashes?: string[];
+  private diffWorkspaceRoot?: string;
 
-  constructor(private readonly gitService: GitService) {}
+  constructor(private readonly gitServices: Map<string, GitService>) {}
+
+  private getGitService(workspaceRoot?: string): GitService | undefined {
+    if (workspaceRoot) {
+      return this.gitServices.get(workspaceRoot);
+    }
+    return this.gitServices.values().next().value as GitService | undefined;
+  }
 
   /** Set the file list for diff navigation */
   setDiffFileList(
@@ -19,11 +27,13 @@ export class DiffEditorManager {
     commit: string,
     baseRef?: string,
     cherryPickHashes?: string[],
+    workspaceRoot?: string,
   ): void {
     this.diffFiles = files;
     this.diffCommit = commit;
     this.diffBaseRef = baseRef;
     this.diffCherryPickHashes = cherryPickHashes;
+    this.diffWorkspaceRoot = workspaceRoot;
     this.diffIndex = -1;
   }
 
@@ -79,6 +89,7 @@ export class DiffEditorManager {
       file,
       this.diffBaseRef,
       this.diffCherryPickHashes,
+      this.diffWorkspaceRoot,
     );
   }
 
@@ -88,32 +99,39 @@ export class DiffEditorManager {
     fileMeta?: DiffFile,
     baseRef?: string,
     cherryPickHashes?: string[],
+    workspaceRoot?: string,
   ): Promise<void> {
+    const svc = this.getGitService(workspaceRoot);
+    if (!svc) return;
+
     const status = fileMeta?.status ?? "modified";
     const oldPath = fileMeta?.oldPath ?? filePath;
     const newPath = fileMeta?.newPath ?? filePath;
+    const rootParam = workspaceRoot
+      ? `&root=${encodeURIComponent(workspaceRoot)}`
+      : "";
 
     // Determine left (parent) and right (commit) refs
     let leftRef: string;
     let rightRef: string = commit;
 
     if (cherryPickHashes && cherryPickHashes.length > 1) {
-      const range = await this.gitService.findFileRange(
+      const range = await svc.findFileRange(
         cherryPickHashes,
         newPath || oldPath,
       );
       if (range) {
         rightRef = range.newest;
-        const parents = await this.gitService.getCommitParents(range.oldest);
+        const parents = await svc.getCommitParents(range.oldest);
         leftRef = parents[0] ?? "";
       } else {
-        const parents = await this.gitService.getCommitParents(commit);
+        const parents = await svc.getCommitParents(commit);
         leftRef = parents[0] ?? "";
       }
     } else if (baseRef) {
       leftRef = baseRef;
     } else {
-      const parents = await this.gitService.getCommitParents(commit);
+      const parents = await svc.getCommitParents(commit);
       leftRef = parents[0] ?? "";
     }
 
@@ -124,35 +142,35 @@ export class DiffEditorManager {
     switch (status) {
       case "added":
         leftUri = vscode.Uri.parse(
-          `${GIT_BRAINS_SCHEME}:/${newPath}?ref=empty`,
+          `${GIT_BRAINS_SCHEME}:/${newPath}?ref=empty${rootParam}`,
         );
         rightUri = vscode.Uri.parse(
-          `${GIT_BRAINS_SCHEME}:/${newPath}?ref=${rightRef}`,
+          `${GIT_BRAINS_SCHEME}:/${newPath}?ref=${rightRef}${rootParam}`,
         );
         break;
       case "deleted":
         leftUri = vscode.Uri.parse(
-          `${GIT_BRAINS_SCHEME}:/${oldPath}?ref=${leftRef}`,
+          `${GIT_BRAINS_SCHEME}:/${oldPath}?ref=${leftRef}${rootParam}`,
         );
         rightUri = vscode.Uri.parse(
-          `${GIT_BRAINS_SCHEME}:/${oldPath}?ref=empty`,
+          `${GIT_BRAINS_SCHEME}:/${oldPath}?ref=empty${rootParam}`,
         );
         break;
       case "renamed":
       case "copied":
         leftUri = vscode.Uri.parse(
-          `${GIT_BRAINS_SCHEME}:/${oldPath}?ref=${leftRef}`,
+          `${GIT_BRAINS_SCHEME}:/${oldPath}?ref=${leftRef}${rootParam}`,
         );
         rightUri = vscode.Uri.parse(
-          `${GIT_BRAINS_SCHEME}:/${newPath}?ref=${rightRef}`,
+          `${GIT_BRAINS_SCHEME}:/${newPath}?ref=${rightRef}${rootParam}`,
         );
         break;
       default: // modified
         leftUri = vscode.Uri.parse(
-          `${GIT_BRAINS_SCHEME}:/${newPath}?ref=${leftRef}`,
+          `${GIT_BRAINS_SCHEME}:/${newPath}?ref=${leftRef}${rootParam}`,
         );
         rightUri = vscode.Uri.parse(
-          `${GIT_BRAINS_SCHEME}:/${newPath}?ref=${rightRef}`,
+          `${GIT_BRAINS_SCHEME}:/${newPath}?ref=${rightRef}${rootParam}`,
         );
         break;
     }

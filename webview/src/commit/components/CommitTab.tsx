@@ -39,6 +39,13 @@ export function CommitTab() {
     dirName: string;
   } | null>(null);
 
+  // Collect all unique repo roots across the entire panel
+  const allRepoRoots = useMemo(() => {
+    const set = new Set<string>();
+    for (const f of changes) set.add(f.workspaceRoot);
+    return set;
+  }, [changes]);
+
   // Group files: staged (Changes) vs unstaged/untracked (Unversioned Files)
   const { stagedFiles, changedFiles, untrackedFiles } = useMemo(() => {
     const staged: WorkingTreeFile[] = [];
@@ -62,11 +69,20 @@ export function CommitTab() {
   }, [changes]);
 
   const handleShelveSelected = useCallback(async () => {
-    const selectedPaths = changes
-      .filter((f) => selectedFiles.has(`${f.path}:${f.staged}`))
-      .map((f) => f.path);
-    if (selectedPaths.length === 0) return;
-    await ideaShelveChanges("Shelved changes", [...new Set(selectedPaths)]);
+    const selectedChanges = changes.filter((f) =>
+      selectedFiles.has(`${f.path}:${f.staged}`),
+    );
+    if (selectedChanges.length === 0) return;
+    // Group by repo and shelve each independently
+    const byRepo = new Map<string, string[]>();
+    for (const f of selectedChanges) {
+      const list = byRepo.get(f.workspaceRoot) ?? [];
+      list.push(f.path);
+      byRepo.set(f.workspaceRoot, list);
+    }
+    for (const [repoRoot, paths] of byRepo) {
+      await ideaShelveChanges("Shelved changes", [...new Set(paths)], repoRoot);
+    }
   }, [changes, selectedFiles, ideaShelveChanges]);
 
   const handleContextMenu = useCallback(
@@ -127,6 +143,7 @@ export function CommitTab() {
             onShowDiff={showDiff}
             onContextMenu={handleContextMenu}
             onDirContextMenu={handleDirContextMenu}
+            forceShowRepo={allRepoRoots.size > 1}
           />
         )}
 
@@ -147,6 +164,7 @@ export function CommitTab() {
             onShowDiff={showDiff}
             onContextMenu={handleContextMenu}
             onDirContextMenu={handleDirContextMenu}
+            forceShowRepo={allRepoRoots.size > 1}
           />
         )}
 
@@ -167,6 +185,7 @@ export function CommitTab() {
             onShowDiff={showDiff}
             onContextMenu={handleContextMenu}
             onDirContextMenu={handleDirContextMenu}
+            forceShowRepo={allRepoRoots.size > 1}
           />
         )}
 
@@ -198,6 +217,144 @@ export function CommitTab() {
   );
 }
 
+function RepoAwareFileList({
+  files,
+  groupByDirectory,
+  selectedFiles,
+  highlightedFiles,
+  onToggleFile,
+  onSetFileKeys,
+  onHighlightFile,
+  onShowDiff,
+  onContextMenu,
+  onDirContextMenu,
+  forceShowRepo,
+}: {
+  files: WorkingTreeFile[];
+  groupByDirectory: boolean;
+  selectedFiles: Set<string>;
+  highlightedFiles: Set<string>;
+  onToggleFile: (key: string) => void;
+  onSetFileKeys: (keys: string[], selected: boolean) => void;
+  onHighlightFile: (key: string, mode: "single" | "toggle") => void;
+  onShowDiff: (
+    path: string,
+    staged?: boolean,
+    workspaceRoot?: string,
+  ) => Promise<void>;
+  onContextMenu: (e: React.MouseEvent, file: WorkingTreeFile) => void;
+  onDirContextMenu: (
+    e: React.MouseEvent,
+    files: WorkingTreeFile[],
+    dirName: string,
+  ) => void;
+  forceShowRepo?: boolean;
+}) {
+  const filesByRepo = useMemo(() => {
+    const map = new Map<string, WorkingTreeFile[]>();
+    for (const f of files) {
+      const list = map.get(f.workspaceRoot) ?? [];
+      list.push(f);
+      map.set(f.workspaceRoot, list);
+    }
+    return map;
+  }, [files]);
+
+  if (filesByRepo.size === 0) {
+    return null;
+  }
+
+  if (filesByRepo.size === 1 && !forceShowRepo) {
+    return groupByDirectory ? (
+      <DirectoryTree
+        files={files}
+        selectedFiles={selectedFiles}
+        highlightedFiles={highlightedFiles}
+        onToggleFile={onToggleFile}
+        onSetFileKeys={onSetFileKeys}
+        onHighlightFile={onHighlightFile}
+        onShowDiff={onShowDiff}
+        onContextMenu={onContextMenu}
+        onDirContextMenu={onDirContextMenu}
+      />
+    ) : (
+      files.map((file) => {
+        const key = `${file.path}:${file.staged}`;
+        return (
+          <FileItem
+            key={key}
+            file={file}
+            selected={selectedFiles.has(key)}
+            highlighted={highlightedFiles.has(key)}
+            onToggle={() => onToggleFile(key)}
+            onShowDiff={() =>
+              onShowDiff(file.path, file.staged, file.workspaceRoot)
+            }
+            onContextMenu={(e) => onContextMenu(e, file)}
+            onClick={(e) => {
+              const mode = e.metaKey || e.ctrlKey ? "toggle" : "single";
+              onHighlightFile(key, mode);
+            }}
+          />
+        );
+      })
+    );
+  }
+
+  return (
+    <>
+      {Array.from(filesByRepo.entries()).map(([repoRoot, repoFiles]) => (
+        <div key={repoRoot} className="commit-repo-group">
+          <div className="commit-repo-header">
+            <span className="commit-repo-name">
+              {repoRoot.split("/").pop() || repoRoot}
+            </span>
+            <span className="commit-repo-count">
+              {repoFiles.length} {repoFiles.length === 1 ? "file" : "files"}
+            </span>
+          </div>
+          <div className="commit-repo-files">
+            {groupByDirectory ? (
+              <DirectoryTree
+                files={repoFiles}
+                selectedFiles={selectedFiles}
+                highlightedFiles={highlightedFiles}
+                onToggleFile={onToggleFile}
+                onSetFileKeys={onSetFileKeys}
+                onHighlightFile={onHighlightFile}
+                onShowDiff={onShowDiff}
+                onContextMenu={onContextMenu}
+                onDirContextMenu={onDirContextMenu}
+              />
+            ) : (
+              repoFiles.map((file) => {
+                const key = `${file.path}:${file.staged}`;
+                return (
+                  <FileItem
+                    key={key}
+                    file={file}
+                    selected={selectedFiles.has(key)}
+                    highlighted={highlightedFiles.has(key)}
+                    onToggle={() => onToggleFile(key)}
+                    onShowDiff={() =>
+                      onShowDiff(file.path, file.staged, file.workspaceRoot)
+                    }
+                    onContextMenu={(e) => onContextMenu(e, file)}
+                    onClick={(e) => {
+                      const mode = e.metaKey || e.ctrlKey ? "toggle" : "single";
+                      onHighlightFile(key, mode);
+                    }}
+                  />
+                );
+              })
+            )}
+          </div>
+        </div>
+      ))}
+    </>
+  );
+}
+
 interface FileGroupProps {
   label: string;
   files: WorkingTreeFile[];
@@ -210,13 +367,18 @@ interface FileGroupProps {
   onToggleFile: (key: string) => void;
   onSetFileKeys: (keys: string[], selected: boolean) => void;
   onHighlightFile: (key: string, mode: "single" | "toggle") => void;
-  onShowDiff: (path: string, staged?: boolean) => Promise<void>;
+  onShowDiff: (
+    path: string,
+    staged?: boolean,
+    workspaceRoot?: string,
+  ) => Promise<void>;
   onContextMenu: (e: React.MouseEvent, file: WorkingTreeFile) => void;
   onDirContextMenu: (
     e: React.MouseEvent,
     files: WorkingTreeFile[],
     dirName: string,
   ) => void;
+  forceShowRepo?: boolean;
 }
 
 function FileGroup({
@@ -234,6 +396,7 @@ function FileGroup({
   onShowDiff,
   onContextMenu,
   onDirContextMenu,
+  forceShowRepo,
 }: FileGroupProps) {
   const allKeys = useMemo(
     () => files.map((f) => `${f.path}:${f.staged}`),
@@ -335,38 +498,19 @@ function FileGroup({
           tabIndex={0}
           onKeyDown={handleKeyDown}
         >
-          {groupByDirectory ? (
-            <DirectoryTree
-              files={files}
-              selectedFiles={selectedFiles}
-              highlightedFiles={highlightedFiles}
-              onToggleFile={onToggleFile}
-              onSetFileKeys={onSetFileKeys}
-              onHighlightFile={onHighlightFile}
-              onShowDiff={onShowDiff}
-              onContextMenu={onContextMenu}
-              onDirContextMenu={onDirContextMenu}
-            />
-          ) : (
-            files.map((file) => {
-              const key = `${file.path}:${file.staged}`;
-              return (
-                <FileItem
-                  key={key}
-                  file={file}
-                  selected={selectedFiles.has(key)}
-                  highlighted={highlightedFiles.has(key)}
-                  onToggle={() => onToggleFile(key)}
-                  onShowDiff={() => onShowDiff(file.path, file.staged)}
-                  onContextMenu={(e) => onContextMenu(e, file)}
-                  onClick={(e) => {
-                    const mode = e.metaKey || e.ctrlKey ? "toggle" : "single";
-                    onHighlightFile(key, mode);
-                  }}
-                />
-              );
-            })
-          )}
+          <RepoAwareFileList
+            files={files}
+            groupByDirectory={groupByDirectory}
+            selectedFiles={selectedFiles}
+            highlightedFiles={highlightedFiles}
+            onToggleFile={onToggleFile}
+            onSetFileKeys={onSetFileKeys}
+            onHighlightFile={onHighlightFile}
+            onShowDiff={onShowDiff}
+            onContextMenu={onContextMenu}
+            onDirContextMenu={onDirContextMenu}
+            forceShowRepo={forceShowRepo}
+          />
         </div>
       )}
     </div>
@@ -453,7 +597,11 @@ function DirectoryTree({
   onToggleFile: (key: string) => void;
   onSetFileKeys: (keys: string[], selected: boolean) => void;
   onHighlightFile: (key: string, mode: "single" | "toggle") => void;
-  onShowDiff: (path: string, staged?: boolean) => Promise<void>;
+  onShowDiff: (
+    path: string,
+    staged?: boolean,
+    workspaceRoot?: string,
+  ) => Promise<void>;
   onContextMenu: (e: React.MouseEvent, file: WorkingTreeFile) => void;
   onDirContextMenu: (
     e: React.MouseEvent,
@@ -505,7 +653,11 @@ function DirNodeView({
   onToggleFile: (key: string) => void;
   onSetFileKeys: (keys: string[], selected: boolean) => void;
   onHighlightFile: (key: string, mode: "single" | "toggle") => void;
-  onShowDiff: (path: string, staged?: boolean) => Promise<void>;
+  onShowDiff: (
+    path: string,
+    staged?: boolean,
+    workspaceRoot?: string,
+  ) => Promise<void>;
   onContextMenu: (e: React.MouseEvent, file: WorkingTreeFile) => void;
   onDirContextMenu: (
     e: React.MouseEvent,
@@ -597,7 +749,9 @@ function DirNodeView({
               selected={selectedFiles.has(key)}
               highlighted={highlightedFiles.has(key)}
               onToggle={() => onToggleFile(key)}
-              onShowDiff={() => onShowDiff(file.path, file.staged)}
+              onShowDiff={() =>
+                onShowDiff(file.path, file.staged, file.workspaceRoot)
+              }
               onContextMenu={(e) => onContextMenu(e, file)}
               onClick={(e) => {
                 const mode = e.metaKey || e.ctrlKey ? "toggle" : "single";
@@ -663,8 +817,12 @@ function DirContextMenu({
 
   const handleDelete = useCallback(() => {
     const paths = files.map((f) => f.path);
+    const repoRoot = files[0]?.workspaceRoot;
     import("../../shared/bridge").then(({ bridge }) => {
-      bridge.request("deleteFiles", { filePaths: paths });
+      bridge.request("deleteFiles", {
+        filePaths: paths,
+        workspaceRoot: repoRoot,
+      });
     });
     onClose();
   }, [files, onClose]);
@@ -674,7 +832,10 @@ function DirContextMenu({
     const firstFile = files[0];
     if (firstFile) {
       import("../../shared/bridge").then(({ bridge }) => {
-        bridge.request("revealInSystemExplorer", { filePath: firstFile.path });
+        bridge.request("revealInSystemExplorer", {
+          filePath: firstFile.path,
+          workspaceRoot: firstFile.workspaceRoot,
+        });
       });
     }
     onClose();

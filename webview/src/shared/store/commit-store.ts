@@ -12,6 +12,7 @@ export interface WorkingTreeFile {
     | "untracked"
     | "conflicted";
   staged: boolean;
+  workspaceRoot: string;
 }
 
 export interface ShelveEntry {
@@ -68,21 +69,41 @@ interface CommitStore {
   selectAllFiles: () => void;
   deselectAllFiles: () => void;
   highlightFile: (key: string, mode: "single" | "toggle") => void;
-  stageFile: (filePath: string) => Promise<void>;
-  unstageFile: (filePath: string) => Promise<void>;
-  stageAll: () => Promise<void>;
-  unstageAll: () => Promise<void>;
+  stageFile: (filePath: string, workspaceRoot: string) => Promise<void>;
+  unstageFile: (filePath: string, workspaceRoot: string) => Promise<void>;
+  stageAll: (workspaceRoot?: string) => Promise<void>;
+  unstageAll: (workspaceRoot?: string) => Promise<void>;
   commit: () => Promise<boolean>;
   commitAndPush: () => Promise<boolean>;
-  rollbackFile: (filePath: string) => Promise<void>;
-  showDiff: (filePath: string, staged?: boolean) => Promise<void>;
-  shelveChanges: (message?: string, filePaths?: string[]) => Promise<void>;
-  unshelveChanges: (stashId: string, drop?: boolean) => Promise<void>;
-  deleteShelve: (stashId: string) => Promise<void>;
-  fetchIdeaShelves: () => Promise<void>;
-  ideaShelveChanges: (message?: string, filePaths?: string[]) => Promise<void>;
-  ideaUnshelveChanges: (shelfName: string, drop?: boolean) => Promise<void>;
-  deleteIdeaShelf: (shelfName: string) => Promise<void>;
+  rollbackFile: (filePath: string, workspaceRoot: string) => Promise<void>;
+  showDiff: (
+    filePath: string,
+    staged?: boolean,
+    workspaceRoot?: string,
+  ) => Promise<void>;
+  shelveChanges: (
+    message?: string,
+    filePaths?: string[],
+    workspaceRoot?: string,
+  ) => Promise<void>;
+  unshelveChanges: (
+    stashId: string,
+    drop?: boolean,
+    workspaceRoot?: string,
+  ) => Promise<void>;
+  deleteShelve: (stashId: string, workspaceRoot?: string) => Promise<void>;
+  fetchIdeaShelves: (workspaceRoot?: string) => Promise<void>;
+  ideaShelveChanges: (
+    message?: string,
+    filePaths?: string[],
+    workspaceRoot?: string,
+  ) => Promise<void>;
+  ideaUnshelveChanges: (
+    shelfName: string,
+    drop?: boolean,
+    workspaceRoot?: string,
+  ) => Promise<void>;
+  deleteIdeaShelf: (shelfName: string, workspaceRoot?: string) => Promise<void>;
   setActiveTab: (tab: TabType) => void;
   toggleGroup: (group: string) => void;
   toggleDir: (dirPath: string) => void;
@@ -215,36 +236,36 @@ export const useCommitStore = create<CommitStore>((set, get) => ({
     }
   },
 
-  async stageFile(filePath: string) {
+  async stageFile(filePath: string, workspaceRoot: string) {
     try {
-      await bridge.request("stageFile", { filePath });
+      await bridge.request("stageFile", { filePath, workspaceRoot });
       await get().fetchChanges();
     } catch (err) {
       console.error("stageFile failed:", err);
     }
   },
 
-  async unstageFile(filePath: string) {
+  async unstageFile(filePath: string, workspaceRoot: string) {
     try {
-      await bridge.request("unstageFile", { filePath });
+      await bridge.request("unstageFile", { filePath, workspaceRoot });
       await get().fetchChanges();
     } catch (err) {
       console.error("unstageFile failed:", err);
     }
   },
 
-  async stageAll() {
+  async stageAll(workspaceRoot?: string) {
     try {
-      await bridge.request("stageAll");
+      await bridge.request("stageAll", { workspaceRoot });
       await get().fetchChanges();
     } catch (err) {
       console.error("stageAll failed:", err);
     }
   },
 
-  async unstageAll() {
+  async unstageAll(workspaceRoot?: string) {
     try {
-      await bridge.request("unstageAll");
+      await bridge.request("unstageAll", { workspaceRoot });
       await get().fetchChanges();
     } catch (err) {
       console.error("unstageAll failed:", err);
@@ -255,18 +276,27 @@ export const useCommitStore = create<CommitStore>((set, get) => ({
     const { commitMessage, amend, changes, selectedFiles } = get();
     if (!commitMessage.trim()) return false;
 
-    // Get selected file paths (only unstaged ones need to be staged)
-    const filesToStage = changes
-      .filter((f) => !f.staged && selectedFiles.has(`${f.path}:${f.staged}`))
-      .map((f) => f.path);
+    // Group files by workspaceRoot so each repo is committed separately
+    const filesByRepo = new Map<string, string[]>();
+    for (const f of changes) {
+      if (!f.staged && selectedFiles.has(`${f.path}:${f.staged}`)) {
+        const list = filesByRepo.get(f.workspaceRoot) ?? [];
+        list.push(f.path);
+        filesByRepo.set(f.workspaceRoot, list);
+      }
+    }
 
     try {
       set({ loading: true });
-      await bridge.request("commitChanges", {
-        message: commitMessage,
-        amend,
-        filePaths: filesToStage,
-      });
+      // Commit each repo independently
+      for (const [repoRoot, filePaths] of filesByRepo) {
+        await bridge.request("commitChanges", {
+          message: commitMessage,
+          amend,
+          filePaths,
+          workspaceRoot: repoRoot,
+        });
+      }
       set({ commitMessage: "", amend: false });
       await get().fetchChanges();
       return true;
@@ -282,17 +312,25 @@ export const useCommitStore = create<CommitStore>((set, get) => ({
     const { commitMessage, amend, changes, selectedFiles } = get();
     if (!commitMessage.trim()) return false;
 
-    const filesToStage = changes
-      .filter((f) => !f.staged && selectedFiles.has(`${f.path}:${f.staged}`))
-      .map((f) => f.path);
+    const filesByRepo = new Map<string, string[]>();
+    for (const f of changes) {
+      if (!f.staged && selectedFiles.has(`${f.path}:${f.staged}`)) {
+        const list = filesByRepo.get(f.workspaceRoot) ?? [];
+        list.push(f.path);
+        filesByRepo.set(f.workspaceRoot, list);
+      }
+    }
 
     try {
       set({ loading: true });
-      await bridge.request("commitAndPush", {
-        message: commitMessage,
-        amend,
-        filePaths: filesToStage,
-      });
+      for (const [repoRoot, filePaths] of filesByRepo) {
+        await bridge.request("commitAndPush", {
+          message: commitMessage,
+          amend,
+          filePaths,
+          workspaceRoot: repoRoot,
+        });
+      }
       set({ commitMessage: "", amend: false });
       await get().fetchChanges();
       return true;
@@ -304,27 +342,43 @@ export const useCommitStore = create<CommitStore>((set, get) => ({
     }
   },
 
-  async rollbackFile(filePath: string) {
+  async rollbackFile(filePath: string, workspaceRoot: string) {
     try {
-      await bridge.request("rollbackFile", { filePath });
+      await bridge.request("rollbackFile", { filePath, workspaceRoot });
       await get().fetchChanges();
     } catch (err) {
       console.error("rollbackFile failed:", err);
     }
   },
 
-  async showDiff(filePath: string, staged?: boolean) {
+  async showDiff(
+    filePath: string,
+    staged: boolean | undefined,
+    workspaceRoot?: string,
+  ) {
     try {
-      await bridge.request("showDiffForWorkingFile", { filePath, staged });
+      await bridge.request("showDiffForWorkingFile", {
+        filePath,
+        staged,
+        workspaceRoot,
+      });
     } catch (err) {
       console.error("showDiff failed:", err);
     }
   },
 
-  async shelveChanges(message?: string, filePaths?: string[]) {
+  async shelveChanges(
+    message?: string,
+    filePaths?: string[],
+    workspaceRoot?: string,
+  ) {
     try {
       set({ loading: true });
-      await bridge.request("shelveChanges", { message, filePaths });
+      await bridge.request("shelveChanges", {
+        message,
+        filePaths,
+        workspaceRoot,
+      });
       await get().fetchChanges();
       await get().fetchShelves();
     } catch (err) {
@@ -334,10 +388,10 @@ export const useCommitStore = create<CommitStore>((set, get) => ({
     }
   },
 
-  async unshelveChanges(stashId: string, drop = true) {
+  async unshelveChanges(stashId: string, drop = true, workspaceRoot?: string) {
     try {
       set({ loading: true });
-      await bridge.request("unshelveChanges", { stashId, drop });
+      await bridge.request("unshelveChanges", { stashId, drop, workspaceRoot });
       await get().fetchChanges();
       await get().fetchShelves();
     } catch (err) {
@@ -347,20 +401,20 @@ export const useCommitStore = create<CommitStore>((set, get) => ({
     }
   },
 
-  async deleteShelve(stashId: string) {
+  async deleteShelve(stashId: string, workspaceRoot?: string) {
     try {
-      await bridge.request("deleteShelve", { stashId });
+      await bridge.request("deleteShelve", { stashId, workspaceRoot });
       await get().fetchShelves();
     } catch (err) {
       console.error("deleteShelve failed:", err);
     }
   },
 
-  async fetchIdeaShelves() {
+  async fetchIdeaShelves(workspaceRoot?: string) {
     try {
-      const result = (await bridge.request(
-        "getIdeaShelves",
-      )) as IdeaShelfEntry[];
+      const result = (await bridge.request("getIdeaShelves", {
+        workspaceRoot,
+      })) as IdeaShelfEntry[];
       if (Array.isArray(result)) {
         set({ ideaShelves: result });
       }
@@ -369,10 +423,18 @@ export const useCommitStore = create<CommitStore>((set, get) => ({
     }
   },
 
-  async ideaShelveChanges(message?: string, filePaths?: string[]) {
+  async ideaShelveChanges(
+    message?: string,
+    filePaths?: string[],
+    workspaceRoot?: string,
+  ) {
     try {
       set({ loading: true });
-      await bridge.request("ideaShelveChanges", { message, filePaths });
+      await bridge.request("ideaShelveChanges", {
+        message,
+        filePaths,
+        workspaceRoot,
+      });
       await get().fetchChanges();
       await get().fetchIdeaShelves();
     } catch (err) {
@@ -382,10 +444,18 @@ export const useCommitStore = create<CommitStore>((set, get) => ({
     }
   },
 
-  async ideaUnshelveChanges(shelfName: string, drop = true) {
+  async ideaUnshelveChanges(
+    shelfName: string,
+    drop = true,
+    workspaceRoot?: string,
+  ) {
     try {
       set({ loading: true });
-      await bridge.request("ideaUnshelveChanges", { shelfName, drop });
+      await bridge.request("ideaUnshelveChanges", {
+        shelfName,
+        drop,
+        workspaceRoot,
+      });
       await get().fetchChanges();
       await get().fetchIdeaShelves();
     } catch (err) {
@@ -395,9 +465,9 @@ export const useCommitStore = create<CommitStore>((set, get) => ({
     }
   },
 
-  async deleteIdeaShelf(shelfName: string) {
+  async deleteIdeaShelf(shelfName: string, workspaceRoot?: string) {
     try {
-      await bridge.request("deleteIdeaShelf", { shelfName });
+      await bridge.request("deleteIdeaShelf", { shelfName, workspaceRoot });
       await get().fetchIdeaShelves();
     } catch (err) {
       console.error("deleteIdeaShelf failed:", err);
