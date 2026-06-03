@@ -277,6 +277,53 @@
   margin-left: auto;
 }
 
+/* ─── Hover Action Buttons ─────────────────────────────────────── */
+.commit-file-actions {
+  display: none;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.commit-file-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  color: var(--vscode-foreground);
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 0;
+  opacity: 0.75;
+}
+
+.commit-file-action-btn:hover {
+  background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.2));
+  opacity: 1;
+}
+
+.commit-file-action-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Show actions on hover, hide status/count */
+.commit-file-item:hover .commit-file-actions,
+.commit-dir-row:hover .commit-file-actions,
+.commit-group-header:hover .commit-file-actions {
+  display: flex;
+}
+
+.commit-file-item:hover .commit-file-status,
+.commit-dir-row:hover .commit-dir-count,
+.commit-group-header:hover .commit-group-count {
+  display: none;
+}
+
 /* ─── Context Menu ─────────────────────────────────────────────── */
 .commit-context-menu {
   background: var(--vscode-menu-background, var(--vscode-dropdown-background));

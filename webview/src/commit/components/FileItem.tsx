@@ -9,6 +9,9 @@ export interface FileItemProps {
   onContextMenu: (e: React.MouseEvent) => void;
   onShowDiff: () => void;
   onClick: (e: React.MouseEvent) => void;
+  onStage?: () => void;
+  onUnstage?: () => void;
+  onOpenFile?: () => void;
 }
 
 export function FileItem({
@@ -19,6 +22,9 @@ export function FileItem({
   onContextMenu,
   onShowDiff,
   onClick,
+  onStage,
+  onUnstage,
+  onOpenFile,
 }: FileItemProps) {
   const parts = file.path.split("/");
   const fileName = parts.pop() || parts.pop() || file.path;
@@ -63,7 +69,87 @@ export function FileItem({
       <span className="commit-file-status" style={{ color: statusColor }}>
         {statusLabel}
       </span>
+      <span className="commit-file-actions">
+        {onOpenFile && (
+          <button
+            type="button"
+            className="commit-file-action-btn"
+            title="Open File"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenFile();
+            }}
+          >
+            <OpenFileIcon />
+          </button>
+        )}
+        {onStage && (
+          <button
+            type="button"
+            className="commit-file-action-btn"
+            title="Stage"
+            onClick={(e) => {
+              e.stopPropagation();
+              onStage();
+            }}
+          >
+            <StageIcon />
+          </button>
+        )}
+        {onUnstage && (
+          <button
+            type="button"
+            className="commit-file-action-btn"
+            title="Unstage"
+            onClick={(e) => {
+              e.stopPropagation();
+              onUnstage();
+            }}
+          >
+            <UnstageIcon />
+          </button>
+        )}
+      </span>
     </div>
+  );
+}
+
+function StageIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M7.5 1C7.77614 1 8 1.22386 8 1.5V7H13.5C13.7761 7 14 7.22386 14 7.5C14 7.77614 13.7761 8 13.5 8H8V13.5C8 13.7761 7.77614 14 7.5 14C7.22386 14 7 13.7761 7 13.5V8H1.5C1.22386 8 1 7.77614 1 7.5C1 7.22386 1.22386 7 1.5 7H7V1.5C7 1.22386 7.22386 1 7.5 1Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
+function UnstageIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M1 7.5C1 7.77614 1.22386 8 1.5 8L13.5 8C13.7761 8 14 7.77614 14 7.5C14 7.22386 13.7761 7 13.5 7L1.5 7C1.22386 7 1 7.22386 1 7.5Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
+function OpenFileIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <path
+        d="M8.5 1.5V11M8.5 1.5L5 5M8.5 1.5L12 5M2 14.5h13"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 

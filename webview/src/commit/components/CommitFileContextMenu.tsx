@@ -204,14 +204,14 @@ export function CommitFileContextMenu({
 
       <div className="commit-context-menu-separator" />
 
-      {/* Shelve */}
+      {/* Stash */}
       <button
         type="button"
         className="commit-context-menu-item"
         onClick={handleShelve}
       >
-        <ShelveIcon />
-        <span>Shelve Changes...</span>
+        <StashIcon />
+        <span>Stash Changes...</span>
       </button>
 
       <div className="commit-context-menu-separator" />
@@ -333,7 +333,7 @@ function RollbackIcon() {
   );
 }
 
-function ShelveIcon() {
+function StashIcon() {
   return (
     <svg
       width="16"

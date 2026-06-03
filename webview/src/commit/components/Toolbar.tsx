@@ -4,10 +4,18 @@ import { useCommitStore } from "../../shared/store/commit-store";
 interface ToolbarProps {
   onRefresh: () => void;
   onShelve: () => void;
+  onRollback: () => void;
+  onShowDiff: () => void;
   hasChanges: boolean;
 }
 
-export function Toolbar({ onRefresh, onShelve, hasChanges }: ToolbarProps) {
+export function Toolbar({
+  onRefresh,
+  onShelve,
+  onRollback,
+  onShowDiff,
+  hasChanges,
+}: ToolbarProps) {
   const [showViewMenu, setShowViewMenu] = useState(false);
   const { expandedGroups, toggleGroup, expandAllDirs } = useCommitStore();
 
@@ -47,6 +55,7 @@ export function Toolbar({ onRefresh, onShelve, hasChanges }: ToolbarProps) {
         type="button"
         className="commit-toolbar-btn"
         title="Rollback"
+        onClick={onRollback}
         disabled={!hasChanges}
       >
         <RollbackIcon />
@@ -64,6 +73,7 @@ export function Toolbar({ onRefresh, onShelve, hasChanges }: ToolbarProps) {
         type="button"
         className="commit-toolbar-btn"
         title="Show Diff"
+        onClick={onShowDiff}
         disabled={!hasChanges}
       >
         <DiffIcon />

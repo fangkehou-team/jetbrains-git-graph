@@ -208,14 +208,46 @@ export async function activate(context: vscode.ExtensionContext) {
     ),
     vscode.commands.registerCommand(
       "git-brains.showFileHistory",
-      (uri?: vscode.Uri) => {
+      async (uri?: vscode.Uri) => {
         const fileUri = uri ?? vscode.window.activeTextEditor?.document.uri;
-        if (!fileUri || !workspaceRoot) return;
-        const relativePath = vscode.workspace.asRelativePath(fileUri, false);
-        // Send file filter to webview
-        messageRouter.broadcastEvent("showFileHistory", {
-          file: relativePath,
-        });
+        if (!fileUri) return;
+
+        const filePath = fileUri.fsPath;
+
+        // Find which workspace folder / git root this file belongs to
+        let targetGitRoot: string | undefined;
+        for (const [folderPath, gitRoot] of workspaceFolderToGitRoot) {
+          const prefix = folderPath.endsWith(path.sep)
+            ? folderPath
+            : folderPath + path.sep;
+          if (filePath === folderPath || filePath.startsWith(prefix)) {
+            targetGitRoot = gitRoot;
+            break;
+          }
+        }
+
+        if (!targetGitRoot) return;
+
+        // Calculate path relative to git root (not workspace folder)
+        const relativePath = path
+          .relative(targetGitRoot, filePath)
+          .replace(/\\/g, "/");
+
+        // Only focus panel if it's not already visible to avoid re-loading webview
+        if (!logProvider.isVisible()) {
+          await vscode.commands.executeCommand("git-brains.gitLog.focus");
+          // Delay to ensure webview is fully ready after being brought from hidden state
+          setTimeout(() => {
+            messageRouter.broadcastEvent("showFileHistory", {
+              file: relativePath,
+            });
+          }, 150);
+        } else {
+          // Panel already visible — send event immediately
+          messageRouter.broadcastEvent("showFileHistory", {
+            file: relativePath,
+          });
+        }
       },
     ),
   );
@@ -443,6 +475,17 @@ export async function activate(context: vscode.ExtensionContext) {
     const svc = getGitService(params.workspaceRoot as string | undefined);
     if (!svc) return NOT_GIT_REPO;
     await svc.stageFile(params.filePath as string);
+    messageRouter.broadcastEvent("commitStateChanged", {});
+    return { success: true };
+  });
+
+  messageRouter.handle("stageFiles", async (params) => {
+    const svc = getGitService(params.workspaceRoot as string | undefined);
+    if (!svc) return NOT_GIT_REPO;
+    const filePaths = params.filePaths as string[];
+    if (filePaths && filePaths.length > 0) {
+      await svc.stageFiles(filePaths);
+    }
     messageRouter.broadcastEvent("commitStateChanged", {});
     return { success: true };
   });
@@ -740,6 +783,19 @@ export async function activate(context: vscode.ExtensionContext) {
     const svc = getGitService(params.workspaceRoot as string | undefined);
     if (!svc) return NOT_GIT_REPO;
     await svc.unstageFile(params.filePath as string);
+    messageRouter.broadcastEvent("commitStateChanged", {});
+    return { success: true };
+  });
+
+  messageRouter.handle("unstageFiles", async (params) => {
+    const svc = getGitService(params.workspaceRoot as string | undefined);
+    if (!svc) return NOT_GIT_REPO;
+    const filePaths = params.filePaths as string[];
+    if (filePaths && filePaths.length > 0) {
+      for (const filePath of filePaths) {
+        await svc.unstageFile(filePath);
+      }
+    }
     messageRouter.broadcastEvent("commitStateChanged", {});
     return { success: true };
   });

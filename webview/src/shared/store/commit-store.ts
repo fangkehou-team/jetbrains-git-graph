@@ -71,6 +71,8 @@ interface CommitStore {
   highlightFile: (key: string, mode: "single" | "toggle") => void;
   stageFile: (filePath: string, workspaceRoot: string) => Promise<void>;
   unstageFile: (filePath: string, workspaceRoot: string) => Promise<void>;
+  stageFiles: (filePaths: string[], workspaceRoot: string) => Promise<void>;
+  unstageFiles: (filePaths: string[], workspaceRoot: string) => Promise<void>;
   stageAll: (workspaceRoot?: string) => Promise<void>;
   unstageAll: (workspaceRoot?: string) => Promise<void>;
   commit: () => Promise<boolean>;
@@ -137,8 +139,7 @@ export const useCommitStore = create<CommitStore>((set, get) => ({
         "getWorkingTreeChanges",
       )) as WorkingTreeFile[];
       if (Array.isArray(result)) {
-        const allPaths = new Set(result.map((f) => `${f.path}:${f.staged}`));
-        set({ changes: result, selectedFiles: allPaths });
+        set({ changes: result, selectedFiles: new Set() });
       }
     } catch (err) {
       console.error("fetchChanges failed:", err);
@@ -251,6 +252,24 @@ export const useCommitStore = create<CommitStore>((set, get) => ({
       await get().fetchChanges();
     } catch (err) {
       console.error("unstageFile failed:", err);
+    }
+  },
+
+  async stageFiles(filePaths: string[], workspaceRoot: string) {
+    try {
+      await bridge.request("stageFiles", { filePaths, workspaceRoot });
+      await get().fetchChanges();
+    } catch (err) {
+      console.error("stageFiles failed:", err);
+    }
+  },
+
+  async unstageFiles(filePaths: string[], workspaceRoot: string) {
+    try {
+      await bridge.request("unstageFiles", { filePaths, workspaceRoot });
+      await get().fetchChanges();
+    } catch (err) {
+      console.error("unstageFiles failed:", err);
     }
   },
 

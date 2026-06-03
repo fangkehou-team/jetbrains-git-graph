@@ -24,6 +24,11 @@ export function CommitTab() {
     showDiff,
     fetchChanges,
     ideaShelveChanges,
+    stageFile,
+    unstageFile,
+    stageFiles,
+    unstageFiles,
+    rollbackFile,
   } = useCommitStore();
 
   const [contextMenu, setContextMenu] = useState<{
@@ -85,6 +90,89 @@ export function CommitTab() {
     }
   }, [changes, selectedFiles, ideaShelveChanges]);
 
+  const handleRollbackSelected = useCallback(async () => {
+    const selectedChanges = changes.filter((f) =>
+      selectedFiles.has(`${f.path}:${f.staged}`),
+    );
+    if (selectedChanges.length === 0) return;
+    // Group by repo and rollback each independently
+    const byRepo = new Map<string, string[]>();
+    for (const f of selectedChanges) {
+      const list = byRepo.get(f.workspaceRoot) ?? [];
+      list.push(f.path);
+      byRepo.set(f.workspaceRoot, list);
+    }
+    for (const [repoRoot, paths] of byRepo) {
+      for (const filePath of [...new Set(paths)]) {
+        await rollbackFile(filePath, repoRoot);
+      }
+    }
+  }, [changes, selectedFiles, rollbackFile]);
+
+  const handleShowDiffSelected = useCallback(() => {
+    const selectedChanges = changes.filter((f) =>
+      selectedFiles.has(`${f.path}:${f.staged}`),
+    );
+    if (selectedChanges.length === 0) return;
+    const first = selectedChanges[0];
+    if (first) {
+      showDiff(first.path, first.staged, first.workspaceRoot);
+    }
+  }, [changes, selectedFiles, showDiff]);
+
+  const handleOpenFile = useCallback((file: WorkingTreeFile) => {
+    import("../../shared/bridge").then(({ bridge }) => {
+      bridge.request("openFile", {
+        filePath: file.path,
+        workspaceRoot: file.workspaceRoot,
+      });
+    });
+  }, []);
+
+  const handleStageFile = useCallback(
+    (file: WorkingTreeFile) => {
+      stageFile(file.path, file.workspaceRoot);
+    },
+    [stageFile],
+  );
+
+  const handleUnstageFile = useCallback(
+    (file: WorkingTreeFile) => {
+      unstageFile(file.path, file.workspaceRoot);
+    },
+    [unstageFile],
+  );
+
+  const handleStageFiles = useCallback(
+    (files: WorkingTreeFile[]) => {
+      const byRepo = new Map<string, string[]>();
+      for (const f of files) {
+        const list = byRepo.get(f.workspaceRoot) ?? [];
+        list.push(f.path);
+        byRepo.set(f.workspaceRoot, list);
+      }
+      for (const [repoRoot, paths] of byRepo) {
+        stageFiles([...new Set(paths)], repoRoot);
+      }
+    },
+    [stageFiles],
+  );
+
+  const handleUnstageFiles = useCallback(
+    (files: WorkingTreeFile[]) => {
+      const byRepo = new Map<string, string[]>();
+      for (const f of files) {
+        const list = byRepo.get(f.workspaceRoot) ?? [];
+        list.push(f.path);
+        byRepo.set(f.workspaceRoot, list);
+      }
+      for (const [repoRoot, paths] of byRepo) {
+        unstageFiles([...new Set(paths)], repoRoot);
+      }
+    },
+    [unstageFiles],
+  );
+
   const handleContextMenu = useCallback(
     (e: React.MouseEvent, file: WorkingTreeFile) => {
       setContextMenu({ x: e.clientX, y: e.clientY, file });
@@ -122,35 +210,17 @@ export function CommitTab() {
           bridge.request("refreshGitState");
         }}
         onShelve={handleShelveSelected}
+        onRollback={handleRollbackSelected}
+        onShowDiff={handleShowDiffSelected}
         hasChanges={changes.length > 0}
       />
 
       <div className="commit-file-list">
-        {/* Changes (tracked, modified) */}
-        {changedFiles.length > 0 && (
-          <FileGroup
-            label="Changes"
-            files={changedFiles}
-            count={changedFiles.length}
-            expanded={expandedGroups.has("changes")}
-            groupByDirectory={groupByDirectory}
-            onToggle={() => toggleGroup("changes")}
-            selectedFiles={selectedFiles}
-            highlightedFiles={highlightedFiles}
-            onToggleFile={toggleFileSelection}
-            onSetFileKeys={setFileKeys}
-            onHighlightFile={highlightFile}
-            onShowDiff={showDiff}
-            onContextMenu={handleContextMenu}
-            onDirContextMenu={handleDirContextMenu}
-            forceShowRepo={allRepoRoots.size > 1}
-          />
-        )}
-
-        {/* Staged files */}
+        {/* Staged files — shown first */}
         {stagedFiles.length > 0 && (
           <FileGroup
             label="Staged"
+            groupType="staged"
             files={stagedFiles}
             count={stagedFiles.length}
             expanded={expandedGroups.has("staged")}
@@ -164,6 +234,38 @@ export function CommitTab() {
             onShowDiff={showDiff}
             onContextMenu={handleContextMenu}
             onDirContextMenu={handleDirContextMenu}
+            onOpenFile={handleOpenFile}
+            onStageFile={handleStageFile}
+            onUnstageFile={handleUnstageFile}
+            onStageFiles={handleStageFiles}
+            onUnstageFiles={handleUnstageFiles}
+            forceShowRepo={allRepoRoots.size > 1}
+          />
+        )}
+
+        {/* Changes (tracked, modified) */}
+        {changedFiles.length > 0 && (
+          <FileGroup
+            label="Changes"
+            groupType="changes"
+            files={changedFiles}
+            count={changedFiles.length}
+            expanded={expandedGroups.has("changes")}
+            groupByDirectory={groupByDirectory}
+            onToggle={() => toggleGroup("changes")}
+            selectedFiles={selectedFiles}
+            highlightedFiles={highlightedFiles}
+            onToggleFile={toggleFileSelection}
+            onSetFileKeys={setFileKeys}
+            onHighlightFile={highlightFile}
+            onShowDiff={showDiff}
+            onContextMenu={handleContextMenu}
+            onDirContextMenu={handleDirContextMenu}
+            onOpenFile={handleOpenFile}
+            onStageFile={handleStageFile}
+            onUnstageFile={handleUnstageFile}
+            onStageFiles={handleStageFiles}
+            onUnstageFiles={handleUnstageFiles}
             forceShowRepo={allRepoRoots.size > 1}
           />
         )}
@@ -172,6 +274,7 @@ export function CommitTab() {
         {showUnversioned && untrackedFiles.length > 0 && (
           <FileGroup
             label="Unversioned Files"
+            groupType="unversioned"
             files={untrackedFiles}
             count={untrackedFiles.length}
             expanded={expandedGroups.has("unversioned")}
@@ -185,6 +288,11 @@ export function CommitTab() {
             onShowDiff={showDiff}
             onContextMenu={handleContextMenu}
             onDirContextMenu={handleDirContextMenu}
+            onOpenFile={handleOpenFile}
+            onStageFile={handleStageFile}
+            onUnstageFile={handleUnstageFile}
+            onStageFiles={handleStageFiles}
+            onUnstageFiles={handleUnstageFiles}
             forceShowRepo={allRepoRoots.size > 1}
           />
         )}
@@ -219,6 +327,7 @@ export function CommitTab() {
 
 function RepoAwareFileList({
   files,
+  groupType,
   groupByDirectory,
   selectedFiles,
   highlightedFiles,
@@ -228,9 +337,15 @@ function RepoAwareFileList({
   onShowDiff,
   onContextMenu,
   onDirContextMenu,
+  onOpenFile,
+  onStageFile,
+  onUnstageFile,
+  onStageFiles,
+  onUnstageFiles,
   forceShowRepo,
 }: {
   files: WorkingTreeFile[];
+  groupType: GroupType;
   groupByDirectory: boolean;
   selectedFiles: Set<string>;
   highlightedFiles: Set<string>;
@@ -248,6 +363,11 @@ function RepoAwareFileList({
     files: WorkingTreeFile[],
     dirName: string,
   ) => void;
+  onOpenFile: (file: WorkingTreeFile) => void;
+  onStageFile: (file: WorkingTreeFile) => void;
+  onUnstageFile: (file: WorkingTreeFile) => void;
+  onStageFiles: (files: WorkingTreeFile[]) => void;
+  onUnstageFiles: (files: WorkingTreeFile[]) => void;
   forceShowRepo?: boolean;
 }) {
   const filesByRepo = useMemo(() => {
@@ -268,6 +388,7 @@ function RepoAwareFileList({
     return groupByDirectory ? (
       <DirectoryTree
         files={files}
+        groupType={groupType}
         selectedFiles={selectedFiles}
         highlightedFiles={highlightedFiles}
         onToggleFile={onToggleFile}
@@ -276,6 +397,11 @@ function RepoAwareFileList({
         onShowDiff={onShowDiff}
         onContextMenu={onContextMenu}
         onDirContextMenu={onDirContextMenu}
+        onOpenFile={onOpenFile}
+        onStageFile={onStageFile}
+        onUnstageFile={onUnstageFile}
+        onStageFiles={onStageFiles}
+        onUnstageFiles={onUnstageFiles}
       />
     ) : (
       files.map((file) => {
@@ -295,6 +421,13 @@ function RepoAwareFileList({
               const mode = e.metaKey || e.ctrlKey ? "toggle" : "single";
               onHighlightFile(key, mode);
             }}
+            onOpenFile={() => onOpenFile(file)}
+            onStage={
+              groupType !== "staged" ? () => onStageFile(file) : undefined
+            }
+            onUnstage={
+              groupType === "staged" ? () => onUnstageFile(file) : undefined
+            }
           />
         );
       })
@@ -317,6 +450,7 @@ function RepoAwareFileList({
             {groupByDirectory ? (
               <DirectoryTree
                 files={repoFiles}
+                groupType={groupType}
                 selectedFiles={selectedFiles}
                 highlightedFiles={highlightedFiles}
                 onToggleFile={onToggleFile}
@@ -325,6 +459,11 @@ function RepoAwareFileList({
                 onShowDiff={onShowDiff}
                 onContextMenu={onContextMenu}
                 onDirContextMenu={onDirContextMenu}
+                onOpenFile={onOpenFile}
+                onStageFile={onStageFile}
+                onUnstageFile={onUnstageFile}
+                onStageFiles={onStageFiles}
+                onUnstageFiles={onUnstageFiles}
               />
             ) : (
               repoFiles.map((file) => {
@@ -344,6 +483,17 @@ function RepoAwareFileList({
                       const mode = e.metaKey || e.ctrlKey ? "toggle" : "single";
                       onHighlightFile(key, mode);
                     }}
+                    onOpenFile={() => onOpenFile(file)}
+                    onStage={
+                      groupType !== "staged"
+                        ? () => onStageFile(file)
+                        : undefined
+                    }
+                    onUnstage={
+                      groupType === "staged"
+                        ? () => onUnstageFile(file)
+                        : undefined
+                    }
                   />
                 );
               })
@@ -355,8 +505,11 @@ function RepoAwareFileList({
   );
 }
 
+type GroupType = "changes" | "staged" | "unversioned";
+
 interface FileGroupProps {
   label: string;
+  groupType: GroupType;
   files: WorkingTreeFile[];
   count: number;
   expanded: boolean;
@@ -378,11 +531,17 @@ interface FileGroupProps {
     files: WorkingTreeFile[],
     dirName: string,
   ) => void;
+  onOpenFile: (file: WorkingTreeFile) => void;
+  onStageFile: (file: WorkingTreeFile) => void;
+  onUnstageFile: (file: WorkingTreeFile) => void;
+  onStageFiles: (files: WorkingTreeFile[]) => void;
+  onUnstageFiles: (files: WorkingTreeFile[]) => void;
   forceShowRepo?: boolean;
 }
 
 function FileGroup({
   label,
+  groupType,
   files,
   count,
   expanded,
@@ -396,6 +555,11 @@ function FileGroup({
   onShowDiff,
   onContextMenu,
   onDirContextMenu,
+  onOpenFile,
+  onStageFile,
+  onUnstageFile,
+  onStageFiles,
+  onUnstageFiles,
   forceShowRepo,
 }: FileGroupProps) {
   const allKeys = useMemo(
@@ -468,6 +632,14 @@ function FileGroup({
     [visibleKeys, highlightedFiles, onHighlightFile],
   );
 
+  const handleGroupStage = useCallback(() => {
+    onStageFiles(files);
+  }, [files, onStageFiles]);
+
+  const handleGroupUnstage = useCallback(() => {
+    onUnstageFiles(files);
+  }, [files, onUnstageFiles]);
+
   return (
     <div className="commit-group">
       <div className="commit-group-header" onClick={onToggle}>
@@ -491,6 +663,34 @@ function FileGroup({
         <span className="commit-group-count">
           {count} {count === 1 ? "file" : "files"}
         </span>
+        <span className="commit-file-actions">
+          {groupType === "staged" && (
+            <button
+              type="button"
+              className="commit-file-action-btn"
+              title="Unstage All"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleGroupUnstage();
+              }}
+            >
+              <MinusIcon />
+            </button>
+          )}
+          {(groupType === "changes" || groupType === "unversioned") && (
+            <button
+              type="button"
+              className="commit-file-action-btn"
+              title="Stage All"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleGroupStage();
+              }}
+            >
+              <PlusIcon />
+            </button>
+          )}
+        </span>
       </div>
       {expanded && (
         <div
@@ -500,6 +700,7 @@ function FileGroup({
         >
           <RepoAwareFileList
             files={files}
+            groupType={groupType}
             groupByDirectory={groupByDirectory}
             selectedFiles={selectedFiles}
             highlightedFiles={highlightedFiles}
@@ -509,6 +710,11 @@ function FileGroup({
             onShowDiff={onShowDiff}
             onContextMenu={onContextMenu}
             onDirContextMenu={onDirContextMenu}
+            onOpenFile={onOpenFile}
+            onStageFile={onStageFile}
+            onUnstageFile={onUnstageFile}
+            onStageFiles={onStageFiles}
+            onUnstageFiles={onUnstageFiles}
             forceShowRepo={forceShowRepo}
           />
         </div>
@@ -582,6 +788,7 @@ function collectFileKeys(node: DirNode): string[] {
 
 function DirectoryTree({
   files,
+  groupType,
   selectedFiles,
   highlightedFiles,
   onToggleFile,
@@ -590,8 +797,14 @@ function DirectoryTree({
   onShowDiff,
   onContextMenu,
   onDirContextMenu,
+  onOpenFile,
+  onStageFile,
+  onUnstageFile,
+  onStageFiles,
+  onUnstageFiles,
 }: {
   files: WorkingTreeFile[];
+  groupType: GroupType;
   selectedFiles: Set<string>;
   highlightedFiles: Set<string>;
   onToggleFile: (key: string) => void;
@@ -608,6 +821,11 @@ function DirectoryTree({
     files: WorkingTreeFile[],
     dirName: string,
   ) => void;
+  onOpenFile: (file: WorkingTreeFile) => void;
+  onStageFile: (file: WorkingTreeFile) => void;
+  onUnstageFile: (file: WorkingTreeFile) => void;
+  onStageFiles: (files: WorkingTreeFile[]) => void;
+  onUnstageFiles: (files: WorkingTreeFile[]) => void;
 }) {
   const { collapsedDirs, toggleDir } = useCommitStore();
   const tree = useMemo(() => buildDirTree(files), [files]);
@@ -615,6 +833,7 @@ function DirectoryTree({
   return (
     <DirNodeView
       node={tree}
+      groupType={groupType}
       depth={0}
       collapsed={collapsedDirs}
       toggleDir={toggleDir}
@@ -626,12 +845,18 @@ function DirectoryTree({
       onShowDiff={onShowDiff}
       onContextMenu={onContextMenu}
       onDirContextMenu={onDirContextMenu}
+      onOpenFile={onOpenFile}
+      onStageFile={onStageFile}
+      onUnstageFile={onUnstageFile}
+      onStageFiles={onStageFiles}
+      onUnstageFiles={onUnstageFiles}
     />
   );
 }
 
 function DirNodeView({
   node,
+  groupType,
   depth,
   collapsed,
   toggleDir,
@@ -643,8 +868,14 @@ function DirNodeView({
   onShowDiff,
   onContextMenu,
   onDirContextMenu,
+  onOpenFile,
+  onStageFile,
+  onUnstageFile,
+  onStageFiles,
+  onUnstageFiles,
 }: {
   node: DirNode;
+  groupType: GroupType;
   depth: number;
   collapsed: Set<string>;
   toggleDir: (path: string) => void;
@@ -664,6 +895,11 @@ function DirNodeView({
     files: WorkingTreeFile[],
     dirName: string,
   ) => void;
+  onOpenFile: (file: WorkingTreeFile) => void;
+  onStageFile: (file: WorkingTreeFile) => void;
+  onUnstageFile: (file: WorkingTreeFile) => void;
+  onStageFiles: (files: WorkingTreeFile[]) => void;
+  onUnstageFiles: (files: WorkingTreeFile[]) => void;
 }) {
   return (
     <>
@@ -719,10 +955,39 @@ function DirNodeView({
                   {countFiles(child)}{" "}
                   {countFiles(child) === 1 ? "file" : "files"}
                 </span>
+                <span className="commit-file-actions">
+                  {groupType === "staged" && (
+                    <button
+                      type="button"
+                      className="commit-file-action-btn"
+                      title="Unstage All in Directory"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onUnstageFiles(collectDirFiles(child));
+                      }}
+                    >
+                      <MinusIcon />
+                    </button>
+                  )}
+                  {(groupType === "changes" || groupType === "unversioned") && (
+                    <button
+                      type="button"
+                      className="commit-file-action-btn"
+                      title="Stage All in Directory"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onStageFiles(collectDirFiles(child));
+                      }}
+                    >
+                      <PlusIcon />
+                    </button>
+                  )}
+                </span>
               </div>
               {!isCollapsed && (
                 <DirNodeView
                   node={child}
+                  groupType={groupType}
                   depth={depth + 1}
                   collapsed={collapsed}
                   toggleDir={toggleDir}
@@ -734,6 +999,11 @@ function DirNodeView({
                   onShowDiff={onShowDiff}
                   onContextMenu={onContextMenu}
                   onDirContextMenu={onDirContextMenu}
+                  onOpenFile={onOpenFile}
+                  onStageFile={onStageFile}
+                  onUnstageFile={onUnstageFile}
+                  onStageFiles={onStageFiles}
+                  onUnstageFiles={onUnstageFiles}
                 />
               )}
             </div>
@@ -757,6 +1027,13 @@ function DirNodeView({
                 const mode = e.metaKey || e.ctrlKey ? "toggle" : "single";
                 onHighlightFile(key, mode);
               }}
+              onOpenFile={() => onOpenFile(file)}
+              onStage={
+                groupType !== "staged" ? () => onStageFile(file) : undefined
+              }
+              onUnstage={
+                groupType === "staged" ? () => onUnstageFile(file) : undefined
+              }
             />
           </div>
         );
@@ -934,6 +1211,32 @@ function ChevronIcon() {
         d="M6 11.5L9.5 8L6 4.5"
         stroke="currentColor"
         strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M7.5 1C7.77614 1 8 1.22386 8 1.5V7H13.5C13.7761 7 14 7.22386 14 7.5C14 7.77614 13.7761 8 13.5 8H8V13.5C8 13.7761 7.77614 14 7.5 14C7.22386 14 7 13.7761 7 13.5V8H1.5C1.22386 8 1 7.77614 1 7.5C1 7.22386 1.22386 7 1.5 7H7V1.5C7 1.22386 7.22386 1 7.5 1Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
+function MinusIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M1 7.5C1 7.77614 1.22386 8 1.5 8L13.5 8C13.7761 8 14 7.77614 14 7.5C14 7.22386 13.7761 7 13.5 7L1.5 7C1.22386 7 1 7.22386 1 7.5Z"
+        fill="currentColor"
       />
     </svg>
   );
